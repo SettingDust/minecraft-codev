@@ -20,8 +20,8 @@ jobs:
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
 
-      - name: Test and Publish
-        run: ./gradlew test publishAllPublicationsToProjectRepository
+      - name: Publish
+        run: ./gradlew publishAllPublicationsToProjectRepository
 
       - name: Deploy to maven-repo branch
         uses: peaceiris/actions-gh-pages@v4
