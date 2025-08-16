@@ -21,6 +21,8 @@ publishing {
         val mavenPassword: String? by project
 
         maven("https://maven.msrandom.net/repository/root/") {
+            name = "msrandomRoot"
+
             credentials {
                 username = mavenUsername
                 password = mavenPassword
@@ -28,6 +30,8 @@ publishing {
         }
 
         maven("https://maven.msrandom.net/repository/cloche/") {
+            name = "msrandomCloche"
+
             credentials {
                 username = mavenUsername
                 password = mavenPassword
