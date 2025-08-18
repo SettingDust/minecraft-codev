@@ -1,0 +1,126 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.msrandom",
+    "module": "minecraft-codev-includes",
+    "version": "0.6.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-includes-0.6.0.jar",
+          "url": "minecraft-codev-includes-0.6.0.jar",
+          "size": 23165,
+          "sha512": "85be45c3a23031189568254ede85bb164c00fbcba9a77a0e91f69a058298f190170ff8009bc142148196debc528d502e9e5c418fdcbc0023ea9fb599abc5a504",
+          "sha256": "b5a46a7d536f771bc83175a053599176a933433b90586b816e12d6276bcf5b0e",
+          "sha1": "177263784a46d0dedd21a3630991e699e8c8e592",
+          "md5": "00669e9a795d2e9b55fb2f12737ae952"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib"
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-core",
+          "version": {
+            "requires": "0.6.2"
+          }
+        }
+      ],
+      "dependencyConstraints": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "minecraft-codev-includes-0.6.0.jar",
+          "url": "minecraft-codev-includes-0.6.0.jar",
+          "size": 23165,
+          "sha512": "85be45c3a23031189568254ede85bb164c00fbcba9a77a0e91f69a058298f190170ff8009bc142148196debc528d502e9e5c418fdcbc0023ea9fb599abc5a504",
+          "sha256": "b5a46a7d536f771bc83175a053599176a933433b90586b816e12d6276bcf5b0e",
+          "sha1": "177263784a46d0dedd21a3630991e699e8c8e592",
+          "md5": "00669e9a795d2e9b55fb2f12737ae952"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-includes-0.6.0-sources.jar",
+          "url": "minecraft-codev-includes-0.6.0-sources.jar",
+          "size": 5642,
+          "sha512": "5990db4c8144df6bbf4d0463c78948d1d92d6d47d03e9cfe7fa67ebc9ca884dc1d6c9ec67e21ef1135249f7b6c64a7970518d9223f54f3603651e7e45ca69f07",
+          "sha256": "e16908804546e7a73ec63099b26b62f55ecd68318c99167737cecf534342211c",
+          "sha1": "2d9dc49bfd177e9e87badf6b2b6787cb7a928a51",
+          "md5": "808e549910c1e3ace4052c7cd7fb634d"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-includes-0.6.0-javadoc.jar",
+          "url": "minecraft-codev-includes-0.6.0-javadoc.jar",
+          "size": 261,
+          "sha512": "6ea2b564fcfc121c659dd9016c03d2d77d326dfcb232ecc2afb0b2e2e518669dc97321fa180f2651acd824037f86a13be7459406243314babb8add1f18629842",
+          "sha256": "9b481526da8dc177592ed975635030ec4e71fcff4df4d8abd978555629eb932f",
+          "sha1": "d7aca4ad83d7074acdf57f9ed983154105f2803f",
+          "md5": "15a948e2519bfb5cad903437f23ea329"
+        }
+      ]
+    }
+  ]
+}

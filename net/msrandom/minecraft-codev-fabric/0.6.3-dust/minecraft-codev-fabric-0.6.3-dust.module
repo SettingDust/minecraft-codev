@@ -1,0 +1,154 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.msrandom",
+    "module": "minecraft-codev-fabric",
+    "version": "0.6.3-dust",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.6.3-dust.jar",
+          "url": "minecraft-codev-fabric-0.6.3-dust.jar",
+          "size": 99205,
+          "sha512": "621f08d89200e3ba0fe63ac1ea1c54cb4dfadf0bff45aea2d1e7d9e962ed2dfc24bb8d64f2fe707227dfd4bef6e35df05bb56d91c4814aeae9c1a9ae7449bfdb",
+          "sha256": "3b9ea33a02c740a19f838abf1f0d4cad4fc7b80b9d76df88f92dd0c8238d33dd",
+          "sha1": "4dbc1f5151a27dac78e414e880808968fd051f2f",
+          "md5": "b0214101fdc032bc8837efb5eeca5e34"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib"
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-access-widener",
+          "version": {
+            "requires": "0.5.32"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-remapper",
+          "version": {
+            "requires": "0.6.4-dust"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-mixins",
+          "version": {
+            "requires": "0.5.32"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-includes",
+          "version": {
+            "requires": "0.6.0"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-runs",
+          "version": {
+            "requires": "0.6.4"
+          }
+        }
+      ],
+      "dependencyConstraints": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.6.3-dust.jar",
+          "url": "minecraft-codev-fabric-0.6.3-dust.jar",
+          "size": 99205,
+          "sha512": "621f08d89200e3ba0fe63ac1ea1c54cb4dfadf0bff45aea2d1e7d9e962ed2dfc24bb8d64f2fe707227dfd4bef6e35df05bb56d91c4814aeae9c1a9ae7449bfdb",
+          "sha256": "3b9ea33a02c740a19f838abf1f0d4cad4fc7b80b9d76df88f92dd0c8238d33dd",
+          "sha1": "4dbc1f5151a27dac78e414e880808968fd051f2f",
+          "md5": "b0214101fdc032bc8837efb5eeca5e34"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.6.3-dust-sources.jar",
+          "url": "minecraft-codev-fabric-0.6.3-dust-sources.jar",
+          "size": 16772,
+          "sha512": "a6bc999612eb0e34f221c9121889f14c555a0dbf610ba7efec992ab9ca7ab877918648af80d004dbb26e5a1c36a75f96d0f02f24794c10e924eb425445de440a",
+          "sha256": "0daa804633f32914a6a92d717829c0a6fb79fd4186516772cb2b1d60ae6eb7be",
+          "sha1": "414802ae9a8f908b3f3a74bc38b53f047be89f19",
+          "md5": "0bb66a341d0ac70e13e10b38aae2c31c"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.6.3-dust-javadoc.jar",
+          "url": "minecraft-codev-fabric-0.6.3-dust-javadoc.jar",
+          "size": 261,
+          "sha512": "4c203532ea7b5bbf6f3f8d63e4d5855ebd17f755147314adb0dd2e12e849cd9493326d2cbee3d109321f42bc019c710b6fa2f8037a5918f07e4fb290b8fe8ce8",
+          "sha256": "b14bdbf5e19cf165ec5053b0a7e48b73e17f8b869a20c1529f595a2356dbea6b",
+          "sha1": "5715c55a39444a58a888e2cf8357723e2b13bb6d",
+          "md5": "d3b4ff7303d5de1cd2f2bfa910111eac"
+        }
+      ]
+    }
+  ]
+}

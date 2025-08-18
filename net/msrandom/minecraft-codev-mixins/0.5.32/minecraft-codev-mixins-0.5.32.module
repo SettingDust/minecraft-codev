@@ -1,0 +1,142 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.msrandom",
+    "module": "minecraft-codev-mixins",
+    "version": "0.5.32",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.13"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "net.fabricmc",
+          "module": "sponge-mixin",
+          "version": {
+            "requires": "0.15.0+mixin.0.8.7"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "minecraft-codev-mixins-0.5.32.jar",
+          "url": "minecraft-codev-mixins-0.5.32.jar",
+          "size": 32259,
+          "sha512": "84ed5be3568b415037bbd3a0868a56ddb0eac264955ac20627a42720858d62b20bd180565761bb23d14f818a9828c6e8276ddad2f5dad306391b2da225566d34",
+          "sha256": "b7eb25e98a33277ecd8e0f888e31edcec47677790e876fb0ea793cea38d5f188",
+          "sha1": "6342caf1f916a5c8672c1da788b49985b670fd5b",
+          "md5": "8985e2c83086f93a1448f04e31c563c8"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib"
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-core",
+          "version": {
+            "requires": "0.6.2"
+          }
+        },
+        {
+          "group": "net.fabricmc",
+          "module": "sponge-mixin",
+          "version": {
+            "requires": "0.15.0+mixin.0.8.7"
+          }
+        }
+      ],
+      "dependencyConstraints": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.21"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "minecraft-codev-mixins-0.5.32.jar",
+          "url": "minecraft-codev-mixins-0.5.32.jar",
+          "size": 32259,
+          "sha512": "84ed5be3568b415037bbd3a0868a56ddb0eac264955ac20627a42720858d62b20bd180565761bb23d14f818a9828c6e8276ddad2f5dad306391b2da225566d34",
+          "sha256": "b7eb25e98a33277ecd8e0f888e31edcec47677790e876fb0ea793cea38d5f188",
+          "sha1": "6342caf1f916a5c8672c1da788b49985b670fd5b",
+          "md5": "8985e2c83086f93a1448f04e31c563c8"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-mixins-0.5.32-sources.jar",
+          "url": "minecraft-codev-mixins-0.5.32-sources.jar",
+          "size": 7188,
+          "sha512": "701eb0f338208be576bcc8e8527281ca0b1ff0302235aef2d019b5357460fa2872d0a5209d9444b666ed379ed8ad7d7f44858abfab1d2287ae6bed24c8e46825",
+          "sha256": "56f2f129273034da4476364628de3d1e532b6beb5121e74c252286fb923c9440",
+          "sha1": "84c470caafe821fd06b100f9fc2cc221bf69bee1",
+          "md5": "faf7ad3f500da3f25def9cd00d725cf5"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-mixins-0.5.32-javadoc.jar",
+          "url": "minecraft-codev-mixins-0.5.32-javadoc.jar",
+          "size": 261,
+          "sha512": "6ea2b564fcfc121c659dd9016c03d2d77d326dfcb232ecc2afb0b2e2e518669dc97321fa180f2651acd824037f86a13be7459406243314babb8add1f18629842",
+          "sha256": "9b481526da8dc177592ed975635030ec4e71fcff4df4d8abd978555629eb932f",
+          "sha1": "d7aca4ad83d7074acdf57f9ed983154105f2803f",
+          "md5": "15a948e2519bfb5cad903437f23ea329"
+        }
+      ]
+    }
+  ]
+}
