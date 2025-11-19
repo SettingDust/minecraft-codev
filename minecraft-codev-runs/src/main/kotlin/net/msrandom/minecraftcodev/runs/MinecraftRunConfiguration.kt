@@ -16,6 +16,8 @@ import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.*
+import org.gradle.kotlin.dsl.listProperty
+import org.gradle.kotlin.dsl.register
 import java.io.File
 import java.nio.file.Path
 import javax.inject.Inject
@@ -71,12 +73,12 @@ abstract class MinecraftRunConfiguration @Inject constructor(private val name: S
 
     val prepareTask: TaskProvider<Task> =
         project.tasks.register(lowerCamelCaseGradleName("prepare", name, ApplicationPlugin.TASK_RUN_NAME)) {
-            it.enabled = false
+            enabled = false
         }
 
     val runTask: TaskProvider<JavaExec> =
-        project.tasks.register(lowerCamelCaseGradleName(ApplicationPlugin.TASK_RUN_NAME, name), JavaExec::class.java) {
-            it.dependsOn(prepareTask)
+        project.tasks.register<JavaExec>(lowerCamelCaseGradleName(ApplicationPlugin.TASK_RUN_NAME, name)) {
+            dependsOn(prepareTask)
         }
 
     init {
@@ -215,7 +217,7 @@ abstract class MinecraftRunConfiguration @Inject constructor(private val name: S
     }
 
     fun compileArguments(arguments: Iterable<Any?>): ListProperty<String> =
-        project.objects.listProperty(String::class.java).apply {
+        project.objects.listProperty<String>().apply {
             for (argument in arguments) {
                 if (argument is Provider<*>) {
                     add(argument.map(::mapArgumentPart))

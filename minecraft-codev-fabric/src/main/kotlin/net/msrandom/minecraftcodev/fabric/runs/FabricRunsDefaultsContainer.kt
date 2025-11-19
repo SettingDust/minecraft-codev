@@ -1,13 +1,10 @@
 package net.msrandom.minecraftcodev.fabric.runs
 
-import kotlinx.serialization.json.decodeFromStream
-import net.msrandom.minecraftcodev.core.MinecraftCodevPlugin.Companion.json
 import net.msrandom.minecraftcodev.core.resolve.MinecraftVersionMetadata
 import net.msrandom.minecraftcodev.core.task.versionList
 import net.msrandom.minecraftcodev.fabric.FabricInstaller
 import net.msrandom.minecraftcodev.fabric.loadFabricInstaller
 import net.msrandom.minecraftcodev.runs.DatagenRunConfigurationData
-import net.msrandom.minecraftcodev.runs.ModOutputs
 import net.msrandom.minecraftcodev.runs.RunConfigurationData
 import net.msrandom.minecraftcodev.runs.RunConfigurationDefaultsContainer
 import net.msrandom.minecraftcodev.runs.task.DownloadAssets
@@ -18,7 +15,9 @@ import org.gradle.api.Action
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier
 import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.kotlin.dsl.newInstance
 import java.io.File
+import kotlin.io.path.readText
 
 open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDefaultsContainer) {
     private fun defaults(data: FabricRunConfigurationData, sidedMain: FabricInstaller.MainClass.() -> String) {
@@ -33,16 +32,10 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
 
         defaults.configuration.apply {
             val modClasses = project.provider {
-                val allOutputs = data.modOutputs.map {
-                    val outputs = it.inputStream().use {
-                        val outputs = json.decodeFromStream<ModOutputs>(it)
+                val byModId = data.modOutputs.get().flatten()
 
-                        outputs.paths.map {
-                            project.rootProject.layout.projectDirectory.dir(it)
-                        }
-                    }
-
-                    compileArguments(outputs).map {
+                val allOutputs = byModId.map { (_, files) ->
+                    compileArguments(files).map {
                         it.joinToString(File.pathSeparator)
                     }
                 }
@@ -59,7 +52,7 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
                     project.configurations.named(it.runtimeClasspathConfigurationName)
                 }.map {
                     val view = it.incoming.artifactView {
-                        it.componentFilter {
+                        componentFilter {
                             it is ModuleComponentIdentifier && it.group == "net.fabricmc" && it.module == "fabric-loader"
                         }
                     }
@@ -75,7 +68,7 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
     }
 
     fun client(action: Action<FabricRunConfigurationData>) {
-        val data = defaults.configuration.project.objects.newInstance(FabricRunConfigurationData::class.java)
+        val data = defaults.configuration.project.objects.newInstance<FabricRunConfigurationData>()
 
         action.execute(data)
 
@@ -122,7 +115,7 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
     }
 
     fun server(action: Action<FabricRunConfigurationData>) {
-        val data = defaults.configuration.project.objects.newInstance(FabricRunConfigurationData::class.java)
+        val data = defaults.configuration.project.objects.newInstance<FabricRunConfigurationData>()
 
         action.execute(data)
 
@@ -130,7 +123,7 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
     }
 
     fun data(action: Action<FabricDatagenRunConfigurationData>) {
-        val data = defaults.configuration.project.objects.newInstance(FabricDatagenRunConfigurationData::class.java)
+        val data = defaults.configuration.project.objects.newInstance<FabricDatagenRunConfigurationData>()
 
         action.execute(data)
 
@@ -159,7 +152,7 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
     }
 
     fun gameTestServer(action: Action<FabricRunConfigurationData>) {
-        val data = defaults.configuration.project.objects.newInstance(FabricRunConfigurationData::class.java)
+        val data = defaults.configuration.project.objects.newInstance<FabricRunConfigurationData>()
         action.execute(data)
 
         server(data)
@@ -167,7 +160,7 @@ open class FabricRunsDefaultsContainer(private val defaults: RunConfigurationDef
     }
 
     fun gameTestClient(action: Action<FabricRunConfigurationData>) {
-        val data = defaults.configuration.project.objects.newInstance(FabricRunConfigurationData::class.java)
+        val data = defaults.configuration.project.objects.newInstance<FabricRunConfigurationData>()
         action.execute(data)
 
         client(data)
