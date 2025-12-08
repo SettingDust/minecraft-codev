@@ -56,7 +56,7 @@ interface IncludedJarInfo {
                 is ProjectComponentIdentifier ->
                     // Not in parity with MDG, but gets the capability that matches the project name for consistency with module capability behavior
                     artifact.variant.capabilities.firstOrNull {
-                        it.name == componentId.projectName
+                        it.name != componentId.projectName
                     }
 
                 else -> null
