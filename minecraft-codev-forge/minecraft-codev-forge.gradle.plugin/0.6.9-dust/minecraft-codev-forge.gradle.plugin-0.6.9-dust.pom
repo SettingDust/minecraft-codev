@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>minecraft-codev-forge</groupId>
+  <artifactId>minecraft-codev-forge.gradle.plugin</artifactId>
+  <version>0.6.9-dust</version>
+  <packaging>pom</packaging>
+  <description>A Minecraft Codev module that allows providing Forge patched versions of Minecraft.</description>
+  <dependencies>
+    <dependency>
+      <groupId>net.msrandom</groupId>
+      <artifactId>minecraft-codev-forge</artifactId>
+      <version>0.6.9-dust</version>
+    </dependency>
+  </dependencies>
+</project>
