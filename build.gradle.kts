@@ -44,10 +44,6 @@ childProjects.values.forEach { project ->
             repositories {
                 mavenLocal()
 
-                maven("file://${rootProject.projectDir}/publish") {
-                    name = "project"
-                }
-
                 maven("https://maven.msrandom.net/repository/cloche/") {
                     name = "msrandom"
 
