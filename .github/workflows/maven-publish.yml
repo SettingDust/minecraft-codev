@@ -28,17 +28,6 @@ jobs:
         with:
           cache-read-only: false
 
-      - name: Extract version
-        id: version
-        run: |
-          VERSION=$(grep "^version=" gradle.properties | cut -d'=' -f2)
-          if [ -z "$VERSION" ]; then
-            echo "Error: No version found in gradle.properties"
-            exit 1
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
-
       - uses: burrunan/gradle-cache-action@v3
         name: Execute Gradle build
         with:
@@ -53,7 +42,6 @@ jobs:
 
       - name: Copy artifacts
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           SOURCE="$HOME/.m2/repository/$GROUP_PATH"
           TARGET="maven-repo/repository/$GROUP_PATH"
           
@@ -64,22 +52,20 @@ jobs:
             if [ -d "$SOURCE/$module" ]; then
               echo "Copying $module"
               mkdir -p "$TARGET/$module"
-              cp -r "$SOURCE/$module/$VERSION" "$TARGET/$module/" 2>/dev/null || true
-              cp "$SOURCE/$module/maven-metadata-local.xml" "$TARGET/$module/" 2>/dev/null || true
+              # Copy all versions
+              cp -r "$SOURCE/$module/"* "$TARGET/$module/" 2>/dev/null || true
             fi
           done
           
           # Copy side-annotations and codev-forge-runtime if present
           if [ -d "$SOURCE/side-annotations" ]; then
             mkdir -p "$TARGET/side-annotations"
-            cp -r "$SOURCE/side-annotations/$VERSION" "$TARGET/side-annotations/" 2>/dev/null || true
-            cp "$SOURCE/side-annotations/maven-metadata-local.xml" "$TARGET/side-annotations/" 2>/dev/null || true
+            cp -r "$SOURCE/side-annotations/"* "$TARGET/side-annotations/" 2>/dev/null || true
           fi
           
           if [ -d "$SOURCE/codev-forge-runtime" ]; then
             mkdir -p "$TARGET/codev-forge-runtime"
-            cp -r "$SOURCE/codev-forge-runtime/$VERSION" "$TARGET/codev-forge-runtime/" 2>/dev/null || true
-            cp "$SOURCE/codev-forge-runtime/maven-metadata-local.xml" "$TARGET/codev-forge-runtime/" 2>/dev/null || true
+            cp -r "$SOURCE/codev-forge-runtime/"* "$TARGET/codev-forge-runtime/" 2>/dev/null || true
           fi
 
       - name: Commit and push
@@ -88,5 +74,5 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add repository/
-          git commit -m "chore(release): publish minecraft-codev ${{ steps.version.outputs.version }}" || echo "No changes to commit"
+          git commit -m "chore(release): publish minecraft-codev" || echo "No changes to commit"
           git push
