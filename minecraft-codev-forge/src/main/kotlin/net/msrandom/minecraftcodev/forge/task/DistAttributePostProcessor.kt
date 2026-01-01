@@ -13,13 +13,13 @@ import java.util.jar.Attributes
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.io.path.bufferedReader
+import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.inputStream
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.notExists
 import kotlin.io.path.outputStream
 import kotlin.io.path.relativeTo
-import kotlin.sequences.filter
 
 internal object DistAttributePostProcessor {
     const val NEOFORGE_DISTS_ATTRIBUTE_NAME = "Minecraft-Dists"
@@ -95,6 +95,7 @@ internal object DistAttributePostProcessor {
                 }
             }
 
+            manifestPath.parent?.createDirectories()
             manifestPath.outputStream().use(manifest::write)
         }
     }
