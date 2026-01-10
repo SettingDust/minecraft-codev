@@ -176,7 +176,6 @@ class PatchMcpAction(
             }
 
             val filters = userdevConfig.universalFilters.map(::Regex)
-            val isNoFilter = filters.isEmpty()
 
             zipFileSystem(universal.toPath()).use { universalZip ->
                 val root = universalZip.getPath("/")
@@ -185,7 +184,7 @@ class PatchMcpAction(
                     for (path in filter(Path::isRegularFile)) {
                         val name = root.relativize(path).toString()
 
-                        if (isNoFilter || !filters.all { name matches it }) {
+                        if (!filters.all { name matches it }) {
                             continue
                         }
 
