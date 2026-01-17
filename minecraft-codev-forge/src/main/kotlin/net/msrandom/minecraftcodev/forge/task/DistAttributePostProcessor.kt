@@ -20,6 +20,7 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.notExists
 import kotlin.io.path.outputStream
 import kotlin.io.path.relativeTo
+import kotlin.sequences.filter
 
 internal object DistAttributePostProcessor {
     const val NEOFORGE_DISTS_ATTRIBUTE_NAME = "Minecraft-Dists"
@@ -50,6 +51,7 @@ internal object DistAttributePostProcessor {
             val to = clientMappings?.getNamespaceId(MappingUtil.NS_SOURCE_FALLBACK) ?: -1
 
             val manifestPath = fs.getPath(JarFile.MANIFEST_NAME)
+
             val manifest = if (manifestPath.exists()) {
                 manifestPath.inputStream().use(::Manifest)
             } else {
@@ -95,7 +97,7 @@ internal object DistAttributePostProcessor {
                 }
             }
 
-            manifestPath.parent?.createDirectories()
+            manifestPath.parent.createDirectories()
             manifestPath.outputStream().use(manifest::write)
         }
     }
