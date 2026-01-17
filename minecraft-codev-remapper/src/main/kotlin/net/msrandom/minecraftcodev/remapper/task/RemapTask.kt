@@ -25,6 +25,9 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.workers.WorkAction
+import org.gradle.workers.WorkParameters
+import org.gradle.workers.WorkerExecutor
 import java.nio.file.Path
 import javax.inject.Inject
 
@@ -62,6 +65,9 @@ abstract class RemapTask : DefaultTask() {
     abstract val objectFactory: ObjectFactory
         @Inject get
 
+    abstract val workerExecutor: WorkerExecutor
+        @Inject get
+
     init {
         run {
             outputFile.convention(
@@ -82,25 +88,56 @@ abstract class RemapTask : DefaultTask() {
 
     @TaskAction
     fun remap() {
-        val cacheKey = buildList<Path> {
-            addAll(classpath.map { it.toPath() })
-            add(mappings.getAsPath())
-            add(inputFile.getAsPath())
+        val workQueue = workerExecutor.noIsolation()
+
+        workQueue.submit(RemapWorkAction::class.java) {
+            inputFile.set(this@RemapTask.inputFile)
+            sourceNamespace.set(this@RemapTask.sourceNamespace)
+            targetNamespace.set(this@RemapTask.targetNamespace)
+            mappings.set(this@RemapTask.mappings)
+            classpath.from(this@RemapTask.classpath)
+            cacheDirectory.set(this@RemapTask.cacheDirectory)
+            outputFile.set(this@RemapTask.outputFile)
         }
+    }
 
-        cacheExpensiveOperation(cacheDirectory.getAsPath(), "remap-$REMAP_OPERATION_VERSION", cacheKey, outputFile.getAsPath()) { (output) ->
-            val mappings = MemoryMappingTree()
+    interface RemapWorkParameters : WorkParameters {
+        val inputFile: RegularFileProperty
+        val sourceNamespace: Property<String>
+        val targetNamespace: Property<String>
+        val mappings: RegularFileProperty
+        val classpath: ConfigurableFileCollection
+        val cacheDirectory: DirectoryProperty
+        val outputFile: RegularFileProperty
+    }
 
-            Tiny2FileReader.read(this.mappings.asFile.get().reader(), mappings)
+    abstract class RemapWorkAction : WorkAction<RemapWorkParameters> {
+        override fun execute() {
+            val cacheKey = buildList<Path> {
+                addAll(parameters.classpath.map { it.toPath() })
+                add(parameters.mappings.getAsPath())
+                add(parameters.inputFile.getAsPath())
+            }
 
-            JarRemapper.remap(
-                mappings,
-                sourceNamespace.get(),
-                targetNamespace.get(),
-                inputFile.getAsPath(),
-                output,
-                classpath,
-            )
+            cacheExpensiveOperation(
+                parameters.cacheDirectory.getAsPath(),
+                "remap-$REMAP_OPERATION_VERSION",
+                cacheKey,
+                parameters.outputFile.getAsPath()
+            ) { (output) ->
+                val mappings = MemoryMappingTree()
+
+                Tiny2FileReader.read(parameters.mappings.asFile.get().reader(), mappings)
+
+                JarRemapper.remap(
+                    mappings,
+                    parameters.sourceNamespace.get(),
+                    parameters.targetNamespace.get(),
+                    parameters.inputFile.getAsPath(),
+                    output,
+                    parameters.classpath,
+                )
+            }
         }
     }
 }

@@ -24,6 +24,9 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.workers.WorkAction
+import org.gradle.workers.WorkParameters
+import org.gradle.workers.WorkerExecutor
 import org.objectweb.asm.ClassReader
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Opcodes
@@ -64,6 +67,9 @@ abstract class AccessWiden : DefaultTask() {
     abstract val objectFactory: ObjectFactory
         @Inject get
 
+    abstract val workerExecutor: WorkerExecutor
+        @Inject get
+
     init {
         outputFile.convention(
             project.layout.file(
@@ -76,58 +82,88 @@ abstract class AccessWiden : DefaultTask() {
         cacheDirectory.set(getLocalCacheDirectoryProvider(project))
     }
 
-    private fun accessWiden(outputPath: Path) {
-        val input = inputFile.get().toPath()
+    @TaskAction
+    fun accessWiden() {
+        // Use Worker API for parallel execution
+        val workQueue = workerExecutor.noIsolation()
 
-        if (accessWideners.isEmpty) {
-            outputPath.tryLink(input)
-
-            return
-        }
-
-        val accessModifiers = loadAccessWideners(accessWideners, namespace.takeIf(Property<*>::isPresent)?.get())
-
-        zipFileSystem(input).use { inputZip ->
-            zipFileSystem(outputPath, true).use { outputZip ->
-                inputZip.getPath("/").walk {
-                    for (path in filter(Path::isRegularFile)) {
-                        val name = path.toString()
-                        val outputPath = outputZip.getPath(name)
-                        outputPath.parent?.createDirectories()
-
-                        if (!name.endsWith(".class")) {
-                            path.copyTo(outputPath, StandardCopyOption.COPY_ATTRIBUTES)
-                            continue
-                        }
-
-                        val className = name.substring(1, name.length - ".class".length)
-
-                        if (!accessModifiers.canModifyAccess(className)) {
-                            path.copyTo(outputPath, StandardCopyOption.COPY_ATTRIBUTES)
-                            continue
-                        }
-
-                        val reader = path.inputStream().use(::ClassReader)
-                        val writer = ClassWriter(0)
-
-                        reader.accept(AccessModifierClassVisitor(Opcodes.ASM9, writer, accessModifiers), 0)
-
-                        outputPath.writeBytes(writer.toByteArray())
-                    }
-                }
-            }
+        workQueue.submit(AccessWidenWorkAction::class.java) {
+            inputFile.set(this@AccessWiden.inputFile)
+            accessWideners.from(this@AccessWiden.accessWideners)
+            namespace.set(this@AccessWiden.namespace)
+            outputFile.set(this@AccessWiden.outputFile)
+            cacheDirectory.set(this@AccessWiden.cacheDirectory)
         }
     }
 
-    @TaskAction
-    fun accessWiden() {
-        val cacheKey = buildList<Path> {
-            addAll(accessWideners.map { it.toPath() })
-            add(inputFile.getAsPath())
+    interface AccessWidenWorkParameters : WorkParameters {
+        val inputFile: RegularFileProperty
+        val accessWideners: ConfigurableFileCollection
+        val namespace: Property<String>
+        val outputFile: RegularFileProperty
+        val cacheDirectory: DirectoryProperty
+    }
+
+    abstract class AccessWidenWorkAction : WorkAction<AccessWidenWorkParameters> {
+        override fun execute() {
+            val cacheKey = buildList<Path> {
+                addAll(parameters.accessWideners.map { it.toPath() })
+                add(parameters.inputFile.getAsPath())
+            }
+
+            cacheExpensiveOperation(
+                parameters.cacheDirectory.getAsPath(),
+                "access-widen-$ACCESS_WIDEN_OPERATION_VERSION",
+                cacheKey,
+                parameters.outputFile.getAsPath()
+            ) { (output) ->
+                performAccessWiden(output)
+            }
         }
 
-        cacheExpensiveOperation(cacheDirectory.getAsPath(), "access-widen-$ACCESS_WIDEN_OPERATION_VERSION", cacheKey, outputFile.getAsPath()) { (output) ->
-            accessWiden(output)
+        private fun performAccessWiden(outputPath: Path) {
+            val input = parameters.inputFile.get().toPath()
+
+            if (parameters.accessWideners.isEmpty) {
+                outputPath.tryLink(input)
+                return
+            }
+
+            val accessModifiers = loadAccessWideners(
+                parameters.accessWideners,
+                parameters.namespace.takeIf(Property<*>::isPresent)?.get()
+            )
+
+            zipFileSystem(input).use { inputZip ->
+                zipFileSystem(outputPath, true).use { outputZip ->
+                    inputZip.getPath("/").walk {
+                        for (path in filter(Path::isRegularFile)) {
+                            val name = path.toString()
+                            val outputPath = outputZip.getPath(name)
+                            outputPath.parent?.createDirectories()
+
+                            if (!name.endsWith(".class")) {
+                                path.copyTo(outputPath, StandardCopyOption.COPY_ATTRIBUTES)
+                                continue
+                            }
+
+                            val className = name.substring(1, name.length - ".class".length)
+
+                            if (!accessModifiers.canModifyAccess(className)) {
+                                path.copyTo(outputPath, StandardCopyOption.COPY_ATTRIBUTES)
+                                continue
+                            }
+
+                            val reader = path.inputStream().use(::ClassReader)
+                            val writer = ClassWriter(0)
+
+                            reader.accept(AccessModifierClassVisitor(Opcodes.ASM9, writer, accessModifiers), 0)
+
+                            outputPath.writeBytes(writer.toByteArray())
+                        }
+                    }
+                }
+            }
         }
     }
 }
