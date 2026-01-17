@@ -67,16 +67,30 @@ jobs:
             fi
           fi
 
+      - name: Build Gradle tasks
+        id: build_tasks
+        if: steps.detect_changes.outputs.modules != 'none'
+        run: |
+          CHANGED_MODULES="${{ steps.detect_changes.outputs.modules }}"
+          
+          if [ "$CHANGED_MODULES" = "all" ]; then
+            echo "tasks=publishToMavenLocal" >> $GITHUB_OUTPUT
+          else
+            # Convert module list to Gradle tasks
+            tasks=""
+            for module in $CHANGED_MODULES; do
+              tasks="$tasks $module:publishToMavenLocal"
+            done
+            tasks=$(echo $tasks | xargs)
+            echo "tasks=$tasks" >> $GITHUB_OUTPUT
+          fi
+          echo "Gradle tasks to run: $(cat $GITHUB_OUTPUT | grep tasks | cut -d= -f2)"
+
       - name: Execute Gradle build
         if: steps.detect_changes.outputs.modules != 'none'
         uses: burrunan/gradle-cache-action@v3
         with:
-          arguments: |
-            ${{ steps.detect_changes.outputs.modules == 'all' && 'publishToMavenLocal' || 
-                format('{0}', join(fromJSON(format('[{0}]', 
-                  replace(replace(steps.detect_changes.outputs.modules, ' ', ':publishToMavenLocal '), 
-                  steps.detect_changes.outputs.modules, 
-                  format('{0}:publishToMavenLocal', steps.detect_changes.outputs.modules))))) }}
+          arguments: ${{ steps.build_tasks.outputs.tasks }}
 
       - name: Checkout Maven Repo
         if: steps.detect_changes.outputs.modules != 'none'
