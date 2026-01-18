@@ -170,6 +170,8 @@ abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersion
 
         var createClientExtra = true
 
+        val isNeoforge = neoforge.getOrElse(false)
+
         val patched =
             try {
                 val merge =
@@ -200,7 +202,7 @@ abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersion
                     userdevFile.toPath(),
                     userdev,
                     universal.singleFile,
-                    neoforge.get() && merge == null && rename == null,
+                    isNeoforge && merge == null && rename == null,
                     patchLog,
                 )
 
@@ -325,8 +327,6 @@ abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersion
         } finally {
             System.setErr(err)
         }
-
-        val isNeoforge = neoforge.getOrElse(false)
 
         if (isNeoforge) {
             DistAttributePostProcessor.postProcess(
