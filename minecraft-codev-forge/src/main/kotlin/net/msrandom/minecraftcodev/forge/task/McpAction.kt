@@ -133,6 +133,7 @@ class PatchMcpAction(
     private val userdevPath: Path,
     private val userdevConfig: UserdevConfig,
     private val universal: File,
+    private val unobfuscatedNeoforge: Boolean,
     logFile: OutputStream,
 ) : McpAction(
     execOperations,
@@ -177,25 +178,27 @@ class PatchMcpAction(
 
             val filters = userdevConfig.universalFilters.map(::Regex)
 
-            zipFileSystem(universal.toPath()).use { universalZip ->
-                val root = universalZip.getPath("/")
+            if (!unobfuscatedNeoforge) {
+                zipFileSystem(universal.toPath()).use { universalZip ->
+                    val root = universalZip.getPath("/")
 
-                root.walk {
-                    for (path in filter(Path::isRegularFile)) {
-                        val name = root.relativize(path).toString()
+                    root.walk {
+                        for (path in filter(Path::isRegularFile)) {
+                            val name = root.relativize(path).toString()
 
-                        if (!filters.all { name matches it }) {
-                            continue
+                            if (!filters.all { name matches it }) {
+                                continue
+                            }
+
+                            val output = patchedZip.getPath(name)
+
+                            output.parent?.createDirectories()
+                            path.copyTo(
+                                output,
+                                StandardCopyOption.COPY_ATTRIBUTES,
+                                StandardCopyOption.REPLACE_EXISTING
+                            )
                         }
-
-                        val output = patchedZip.getPath(name)
-
-                        output.parent?.createDirectories()
-                        path.copyTo(
-                            output,
-                            StandardCopyOption.COPY_ATTRIBUTES,
-                            StandardCopyOption.REPLACE_EXISTING
-                        )
                     }
                 }
             }
