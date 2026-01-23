@@ -2,7 +2,7 @@ package net.msrandom.minecraftcodev.accesswidener
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromStream
-import net.fabricmc.accesswidener.AccessWidenerReader
+import net.fabricmc.classtweaker.api.ClassTweakerReader
 import net.msrandom.minecraftcodev.core.ResolutionData
 import net.msrandom.minecraftcodev.core.ResolutionRule
 import net.msrandom.minecraftcodev.core.ZipResolutionRule
@@ -27,11 +27,11 @@ class ZipAccessModifierResolutionRuleHandler :
 
 class AccessWidenerResolutionRule : AccessModifierResolutionRule {
     override fun load(path: Path, extension: String, data: AccessModifierResolutionData): Boolean {
-        if (extension.lowercase() != "accesswidener") {
+        if (extension.lowercase() != "accesswidener" && extension.lowercase() != "ct") {
             return false
         }
 
-        val reader = AccessWidenerReader(data.visitor)
+        val reader = ClassTweakerReader.create(data.visitor)
 
         path.inputStream().bufferedReader().use {
             reader.read(it, data.namespace)

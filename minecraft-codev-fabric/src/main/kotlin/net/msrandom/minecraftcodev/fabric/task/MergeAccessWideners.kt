@@ -1,7 +1,8 @@
 package net.msrandom.minecraftcodev.fabric.task
 
-import net.fabricmc.accesswidener.AccessWidenerReader
-import net.fabricmc.accesswidener.AccessWidenerWriter
+import net.fabricmc.classtweaker.api.ClassTweaker
+import net.fabricmc.classtweaker.api.ClassTweakerReader
+import net.fabricmc.classtweaker.api.ClassTweakerWriter
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
@@ -52,14 +53,14 @@ abstract class MergeAccessWideners : DefaultTask() {
         }
 
         output.bufferedWriter().use {
-            val writer = AccessWidenerWriter()
-            val reader = AccessWidenerReader(writer)
+            val writer = ClassTweakerWriter.create(ClassTweaker.CT_V1)
+            val reader = ClassTweakerReader.create(writer)
 
             for (accessWidener in input) {
                 accessWidener.bufferedReader().use(reader::read)
             }
 
-            it.write(writer.writeString())
+            it.write(writer.outputAsString)
         }
     }
 }
