@@ -43,23 +43,20 @@ class GradleMixinService : MixinServiceAbstract() {
     }
 
     /**
-     * Thread safe accessor
+     * Set up classpath and side for mixin processing.
+     * Each isolated classloader instance runs independently, no synchronization needed.
      */
     fun <R> use(
         classpath: Iterable<File>,
         side: Side,
         action: GradleMixinService.() -> R,
-    ) = synchronized(this) {
+    ): R {
         this.classpath = URLClassLoader(classpath.map { it.toURI().toURL() }.toTypedArray(), javaClass.classLoader)
 
         sideField[MixinEnvironment.getCurrentEnvironment()] = Side.UNKNOWN
         MixinEnvironment.getCurrentEnvironment().side = side
 
-        MixinCleaner.run(transformer)
-
-        recorderExtension.appliedMixins = null
-
-        this.action()
+        return this.action()
     }
 
     override fun getName() = "Gradle"
