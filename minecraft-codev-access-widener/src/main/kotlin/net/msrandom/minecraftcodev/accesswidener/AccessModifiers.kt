@@ -28,8 +28,6 @@ data class AccessModifiers(
     var namespace: String? = null,
     val classes: MutableMap<String, ClassModel> = hashMapOf(),
 ) : ClassTweakerVisitor {
-    private val accessWideners = hashMapOf<String, AccessWidenerVisitor>()
-
     fun onlyTransitives() = copy(onlyTransitives = true)
 
     fun visit(modifiers: AccessModifiers) {
@@ -61,69 +59,59 @@ data class AccessModifiers(
     }
 
     override fun visitAccessWidener(owner: String): AccessWidenerVisitor {
-        return accessWideners.computeIfAbsent(owner) {
-            object : AccessWidenerVisitor {
-                override fun visitClass(
-                    access: AccessWidenerVisitor.AccessType,
-                    transitive: Boolean
-                ) {
-                    if (!shouldVisit(transitive)) return
+        return object : AccessWidenerVisitor {
+            override fun visitClass(
+                access: AccessWidenerVisitor.AccessType,
+                transitive: Boolean
+            ) {
+                if (!shouldVisit(transitive)) return
 
-                    val accessTransform = when (access) {
-                        AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
-                        AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(
-                            AccessChange.PROTECTED,
-                            ModifierChange.REMOVE
-                        )
-
-                        else -> AccessTransform.EMPTY
-                    }
-
-                    if (accessTransform != AccessTransform.EMPTY) {
-                        this@AccessModifiers.visitClass(owner, accessTransform)
-                    }
+                val accessTransform = when (access) {
+                    AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
+                    AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(AccessChange.PROTECTED, ModifierChange.REMOVE)
+                    else -> AccessTransform.EMPTY
                 }
 
-                override fun visitMethod(
-                    name: String,
-                    descriptor: String,
-                    access: AccessWidenerVisitor.AccessType,
-                    transitive: Boolean
-                ) {
-                    if (!shouldVisit(transitive)) return
+                if (accessTransform != AccessTransform.EMPTY) {
+                    this@AccessModifiers.visitClass(owner, accessTransform)
+                }
+            }
 
-                    val accessTransform = when (access) {
-                        AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
-                        AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(
-                            AccessChange.PROTECTED,
-                            ModifierChange.REMOVE
-                        )
+            override fun visitMethod(
+                name: String,
+                descriptor: String,
+                access: AccessWidenerVisitor.AccessType,
+                transitive: Boolean
+            ) {
+                if (!shouldVisit(transitive)) return
 
-                        else -> AccessTransform.EMPTY
-                    }
-
-                    if (accessTransform != AccessTransform.EMPTY) {
-                        this@AccessModifiers.visitMethod(owner, name, descriptor, accessTransform)
-                    }
+                val accessTransform = when (access) {
+                    AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
+                    AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(AccessChange.PROTECTED, ModifierChange.REMOVE)
+                    else -> AccessTransform.EMPTY
                 }
 
-                override fun visitField(
-                    name: String,
-                    descriptor: String,
-                    access: AccessWidenerVisitor.AccessType,
-                    transitive: Boolean
-                ) {
-                    if (!shouldVisit(transitive)) return
+                if (accessTransform != AccessTransform.EMPTY) {
+                    this@AccessModifiers.visitMethod(owner, name, descriptor, accessTransform)
+                }
+            }
 
-                    val accessTransform = when (access) {
-                        AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
-                        AccessWidenerVisitor.AccessType.MUTABLE -> AccessTransform.of(ModifierChange.REMOVE)
-                        else -> AccessTransform.EMPTY
-                    }
+            override fun visitField(
+                name: String,
+                descriptor: String,
+                access: AccessWidenerVisitor.AccessType,
+                transitive: Boolean
+            ) {
+                if (!shouldVisit(transitive)) return
 
-                    if (accessTransform != AccessTransform.EMPTY) {
-                        this@AccessModifiers.visitField(owner, name, descriptor, accessTransform)
-                    }
+                val accessTransform = when (access) {
+                    AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
+                    AccessWidenerVisitor.AccessType.MUTABLE -> AccessTransform.of(ModifierChange.REMOVE)
+                    else -> AccessTransform.EMPTY
+                }
+
+                if (accessTransform != AccessTransform.EMPTY) {
+                    this@AccessModifiers.visitField(owner, name, descriptor, accessTransform)
                 }
             }
         }
@@ -296,18 +284,8 @@ data class AccessModifiers(
             encoder: Encoder,
             value: AccessTransform
         ) = encoder.encodeStructure(descriptor) {
-            encodeSerializableElement(
-                serialDescriptor<AccessChange>(),
-                0,
-                kotlinx.serialization.serializer(),
-                value.access
-            )
-            encodeSerializableElement(
-                serialDescriptor<ModifierChange>(),
-                1,
-                kotlinx.serialization.serializer(),
-                value.final
-            )
+            encodeSerializableElement(serialDescriptor<AccessChange>(), 0, kotlinx.serialization.serializer(), value.access)
+            encodeSerializableElement(serialDescriptor<ModifierChange>(), 1, kotlinx.serialization.serializer(), value.final)
         }
 
         override fun deserialize(decoder: Decoder): AccessTransform = decoder.decodeStructure(descriptor) {

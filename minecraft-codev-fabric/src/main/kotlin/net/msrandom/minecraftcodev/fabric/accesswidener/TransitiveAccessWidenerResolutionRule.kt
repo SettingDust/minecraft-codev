@@ -27,6 +27,7 @@ class TransitiveAccessWidenerResolutionRule : ZipAccessModifierResolutionRule {
 
             fileSystem.getPath(accessWidenerPath).inputStream().use {
                 ClassTweakerReader.create(data.visitor.onlyTransitives()).read(it.bufferedReader(), data.namespace)
+
             }
 
             return true
