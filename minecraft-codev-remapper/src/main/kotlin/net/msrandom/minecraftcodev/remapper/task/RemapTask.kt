@@ -118,12 +118,12 @@ abstract class RemapTask : DefaultTask() {
             }
 
             cacheExpensiveOperation(
-                cacheDirectory.getAsPath(),
+                parameters.cacheDirectory.getAsPath(),
                 "remap-$REMAP_OPERATION_VERSION",
                 cacheKey,
-                outputFile.getAsPath()
+                parameters.outputFile.getAsPath()
             ) { (output) ->
-                val mappings = loadCachedMappingFile(mappings.getAsPath())
+                val mappings = loadCachedMappingFile(parameters.mappings.getAsPath())
 
                 JarRemapper.remap(
                     mappings,
