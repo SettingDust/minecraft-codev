@@ -28,7 +28,8 @@ abstract class GenerateAccessTransformer : DefaultTask() {
 
     init {
         apply {
-            output.convention(project.layout.dir(project.provider { temporaryDir }).map { it.file("accesstransformer.cfg") })
+            output.convention(
+                project.layout.dir(project.provider { temporaryDir }).map { it.file("accesstransformer.cfg") })
         }
     }
 
@@ -42,41 +43,43 @@ abstract class GenerateAccessTransformer : DefaultTask() {
                 continue
             }
 
-            val reader =
-                ClassTweakerReader.create(
-                    object : ClassTweakerVisitor {
-                        override fun visitHeader(namespace: String?) {}
-
-                        override fun visitAccessWidener(owner: String): AccessWidenerVisitor {
-                            return object : AccessWidenerVisitor {
-                                override fun visitClass(
-                                    access: AccessWidenerVisitor.AccessType,
-                                    transitive: Boolean,
-                                ) {
-                                    accessTransformers.getOrCreateClass(owner).merge(getAccess(access))
-                                }
-
-                                override fun visitMethod(
-                                    name: String,
-                                    descriptor: String,
-                                    access: AccessWidenerVisitor.AccessType,
-                                    transitive: Boolean,
-                                ) {
-                                    accessTransformers.getOrCreateClass(owner).mergeMethod(MethodSignature.of(name, descriptor), getAccess(access))
-                                }
-
-                                override fun visitField(
-                                    name: String,
-                                    descriptor: String?,
-                                    access: AccessWidenerVisitor.AccessType,
-                                    transitive: Boolean,
-                                ) {
-                                    accessTransformers.getOrCreateClass(owner).mergeField(name, getAccess(access))
-                                }
-                            }
+            val reader = ClassTweakerReader.create(object : ClassTweakerVisitor {
+                override fun visitAccessWidener(owner: String) = object : AccessWidenerVisitor {
+                    private fun getAccess(access: AccessWidenerVisitor.AccessType) =
+                        when (access) {
+                            AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.of(AccessChange.PUBLIC)
+                            AccessWidenerVisitor.AccessType.MUTABLE,
+                            AccessWidenerVisitor.AccessType.EXTENDABLE ->
+                                AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE)
                         }
-                    },
-                )
+
+                    override fun visitClass(
+                        access: AccessWidenerVisitor.AccessType,
+                        transitive: Boolean,
+                    ) {
+                        accessTransformers.getOrCreateClass(name).merge(getAccess(access))
+                    }
+
+                    override fun visitMethod(
+                        name: String,
+                        descriptor: String,
+                        access: AccessWidenerVisitor.AccessType,
+                        transitive: Boolean,
+                    ) {
+                        accessTransformers.getOrCreateClass(owner)
+                            .mergeMethod(MethodSignature.of(name, descriptor), getAccess(access))
+                    }
+
+                    override fun visitField(
+                        name: String,
+                        descriptor: String,
+                        access: AccessWidenerVisitor.AccessType,
+                        transitive: Boolean,
+                    ) {
+                        accessTransformers.getOrCreateClass(owner).mergeField(name, getAccess(access))
+                    }
+                }
+            })
 
             accessWidener.bufferedReader().use(reader::read)
         }
@@ -85,10 +88,4 @@ abstract class GenerateAccessTransformer : DefaultTask() {
             AccessTransformFormats.FML.write(it, accessTransformers)
         }
     }
-
-    private fun getAccess(access: AccessWidenerVisitor.AccessType) =
-        when (access) {
-            AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.of(AccessChange.PUBLIC)
-            AccessWidenerVisitor.AccessType.MUTABLE, AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE)
-        }
 }
