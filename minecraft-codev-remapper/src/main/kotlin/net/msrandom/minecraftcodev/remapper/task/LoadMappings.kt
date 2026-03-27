@@ -11,7 +11,9 @@ import net.msrandom.minecraftcodev.remapper.FieldRemoveNullDescVisitor
 import net.msrandom.minecraftcodev.remapper.loadMappings
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
@@ -47,7 +49,12 @@ abstract class LoadMappings : CachedMinecraftTask() {
     abstract val execOperations: ExecOperations
         @Inject get
 
+    abstract val namedSrg: Property<Boolean>
+        @Input get
+
+
     init {
+        namedSrg.convention(false)
         run {
             output.set(temporaryDir.resolve("mappings.tiny"))
         }
@@ -56,7 +63,7 @@ abstract class LoadMappings : CachedMinecraftTask() {
     @TaskAction
     fun load() {
         cacheExpensiveOperation(cacheParameters.directory.getAsPath(), "mappings-$LOAD_MAPPINGS_OPERATION_VERSION", mappings.map { it.toPath() }, output.getAsPath()) { (output) ->
-            val mappings = loadMappings(mappings, javaExecutable.get(), cacheParameters, execOperations)
+            val mappings = loadMappings(mappings, javaExecutable.get(), cacheParameters, execOperations, namedSrg.get())
 
             output.bufferedWriter().use { writer ->
                 mappings.accept(FieldAddDescVisitor(Tiny2FileWriter(writer, false)))
