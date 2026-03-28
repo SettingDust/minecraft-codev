@@ -35,28 +35,28 @@ class McpConfigMappingResolutionRule : ZipMappingResolutionRule {
                 val list = getVersionList(data.cacheDirectory, data.versionManifestUrl, data.isOffline)
                 val version = list.version(mcpConfigFile.config.version)
 
-                val clientMappings = downloadMinecraftFile(
-                    data.cacheDirectory,
-                    version,
-                    MinecraftDownloadVariant.ClientMappings,
-                    data.isOffline
-                )!!.toFile()
+                val clientMappings = downloadMinecraftFile(data.cacheDirectory, version, MinecraftDownloadVariant.ClientMappings, data.isOffline)!!.toFile()
 
                 val joinedMappingsPath = fileSystem.getPath(mcpConfigFile.config.data.getValue("mappings")!!)
                 val joinedMappings = joinedMappingsPath.inputStream().use(IMappingFile::load)
                 val official = INamedMappingFile.load(clientMappings).getMap("right", "left")
 
+                val isNeoforge = mcpConfigFile.config.spec == 4 &&
+                        mcpConfigFile.config.functions["mergeMappings"]
+                            ?.version
+                            ?.startsWith("net.neoforged") == true
+
                 val classRenamer = object : IRenamer {
                     override fun rename(value: IMappingFile.IPackage) = official.remapPackage(value.original)
                     override fun rename(value: IMappingFile.IClass) = official.remapClass(value.original)
 
-                    override fun rename(value: IMappingFile.IField) = if (data.namedSrg) {
+                    override fun rename(value: IMappingFile.IField) = if (isNeoforge) {
                         official.getClass(value.parent.original)?.remapField(value.original) ?: value.mapped
                     } else {
                         value.mapped
                     }
 
-                    override fun rename(value: IMappingFile.IMethod) = if (data.namedSrg) {
+                    override fun rename(value: IMappingFile.IMethod) = if (isNeoforge) {
                         official.getClass(value.parent.original)?.remapMethod(value.original, value.descriptor) ?: value.mapped
                     } else {
                         value.mapped
