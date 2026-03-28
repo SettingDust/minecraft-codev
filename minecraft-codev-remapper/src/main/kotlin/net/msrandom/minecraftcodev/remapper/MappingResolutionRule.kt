@@ -55,7 +55,6 @@ class MappingResolutionData(
     val versionManifestUrl: String,
     val isOffline: Boolean,
     val execOperations: ExecOperations,
-    val namedSrg: Boolean,
 ) : ResolutionData<MappingTreeProvider>(visitor)
 
 interface MappingResolutionRule : ResolutionRule<MappingResolutionData>
@@ -151,7 +150,6 @@ fun loadMappings(
     javaExecutable: RegularFile,
     cacheParameters: CachedMinecraftParameters,
     execOperations: ExecOperations,
-    namedSrg: Boolean,
 ): MappingTreeView {
     val tree = MemoryMappingTree()
 
@@ -163,7 +161,6 @@ fun loadMappings(
         cacheParameters.versionManifestUrl.get(),
         cacheParameters.getIsOffline().get(),
         execOperations,
-        namedSrg,
     )
 
     for (file in files) {

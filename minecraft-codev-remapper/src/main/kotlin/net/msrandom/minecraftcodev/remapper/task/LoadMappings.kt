@@ -49,12 +49,7 @@ abstract class LoadMappings : CachedMinecraftTask() {
     abstract val execOperations: ExecOperations
         @Inject get
 
-    abstract val namedSrg: Property<Boolean>
-        @Input get
-
-
     init {
-        namedSrg.convention(false)
         run {
             output.set(temporaryDir.resolve("mappings.tiny"))
         }
@@ -63,7 +58,7 @@ abstract class LoadMappings : CachedMinecraftTask() {
     @TaskAction
     fun load() {
         cacheExpensiveOperation(cacheParameters.directory.getAsPath(), "mappings-$LOAD_MAPPINGS_OPERATION_VERSION", mappings.map { it.toPath() }, output.getAsPath()) { (output) ->
-            val mappings = loadMappings(mappings, javaExecutable.get(), cacheParameters, execOperations, namedSrg.get())
+            val mappings = loadMappings(mappings, javaExecutable.get(), cacheParameters, execOperations)
 
             output.bufferedWriter().use { writer ->
                 mappings.accept(FieldAddDescVisitor(Tiny2FileWriter(writer, false)))
