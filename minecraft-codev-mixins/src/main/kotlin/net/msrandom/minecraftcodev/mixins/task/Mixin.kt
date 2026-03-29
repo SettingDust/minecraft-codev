@@ -1,6 +1,7 @@
 package net.msrandom.minecraftcodev.mixins.task
 
 import net.fabricmc.mappingio.tree.MemoryMappingTree
+import net.msrandom.minecraftcodev.core.utils.SetMultimapSerializer
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import net.msrandom.minecraftcodev.mixins.mixin.GradleMixinService
 import net.msrandom.minecraftcodev.mixins.mixin.IsolatingMixinClassLoader
@@ -158,6 +159,8 @@ abstract class Mixin : DefaultTask() {
             // Our plugin classes
             GradleMixinService::class.java,
             MappingIoRemapperAdapter::class.java,
+            // minecraft-codev-core classes
+            SetMultimapSerializer::class.java,
             // Mixin library
             MixinEnvironment::class.java,
             MixinBootstrap::class.java,
