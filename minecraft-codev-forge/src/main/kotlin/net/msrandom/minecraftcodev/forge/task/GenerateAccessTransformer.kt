@@ -57,7 +57,7 @@ abstract class GenerateAccessTransformer : DefaultTask() {
                         access: AccessWidenerVisitor.AccessType,
                         transitive: Boolean,
                     ) {
-                        accessTransformers.getOrCreateClass(name).merge(getAccess(access))
+                        accessTransformers.getOrCreateClass(owner).merge(getAccess(access))
                     }
 
                     override fun visitMethod(
