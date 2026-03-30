@@ -1,6 +1,9 @@
 name: Publish to Maven Repository
 
 on:
+  push:
+    paths:
+      - '**/gradle.properties'
   workflow_dispatch:
 
 jobs:
