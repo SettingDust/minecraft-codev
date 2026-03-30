@@ -69,7 +69,7 @@ abstract class Mixin : DefaultTask() {
         outputFile.convention(
             project.layout.file(
                 inputFile.map {
-                    temporaryDir.resolve("${it.asFile.nameWithoutExtension}-with-mixins.${it.asFile.extension}")
+                    temporaryDir.resolve("${it.asFile.nameWithoutExtension}-mixined.${it.asFile.extension}")
                 },
             ),
         )
