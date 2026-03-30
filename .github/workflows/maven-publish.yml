@@ -1,9 +1,6 @@
 name: Publish to Maven Repository
 
 on:
-  push:
-    paths:
-      - '**/gradle.properties'
   workflow_dispatch:
 
 jobs:
@@ -28,143 +25,59 @@ jobs:
         with:
           cache-read-only: false
 
-      - name: Detect changed modules
-        id: detect_changes
-        run: |
-          # Get changed gradle.properties files
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # For manual triggers, publish all modules
-            echo "modules=all" >> $GITHUB_OUTPUT
-          else
-            # Get the list of changed gradle.properties files
-            changed_files=$(git diff --name-only HEAD^ HEAD | grep 'gradle.properties$' || true)
-            
-            if [ -z "$changed_files" ]; then
-              echo "No gradle.properties files changed"
-              echo "modules=none" >> $GITHUB_OUTPUT
-            else
-              echo "Changed gradle.properties files:"
-              echo "$changed_files"
-              
-              # Extract module names from paths
-              modules=""
-              for file in $changed_files; do
-                if [[ $file == "gradle.properties" ]]; then
-                  # Root gradle.properties changed, publish all modules
-                  echo "modules=all" >> $GITHUB_OUTPUT
-                  exit 0
-                else
-                  # Extract module name from path like "minecraft-codev-core/gradle.properties"
-                  module=$(echo $file | sed 's|/gradle.properties||')
-                  modules="$modules $module"
-                fi
-              done
-              
-              # Remove leading/trailing spaces and save
-              modules=$(echo $modules | xargs)
-              echo "modules=$modules" >> $GITHUB_OUTPUT
-              echo "Modules to publish: $modules"
-            fi
-          fi
-
-      - name: Build Gradle tasks
-        id: build_tasks
-        if: steps.detect_changes.outputs.modules != 'none'
-        run: |
-          CHANGED_MODULES="${{ steps.detect_changes.outputs.modules }}"
-          
-          if [ "$CHANGED_MODULES" = "all" ]; then
-            echo "tasks=publishToMavenLocal" >> $GITHUB_OUTPUT
-          else
-            # Convert module list to Gradle tasks
-            tasks=""
-            for module in $CHANGED_MODULES; do
-              tasks="$tasks $module:publishToMavenLocal"
-            done
-            tasks=$(echo $tasks | xargs)
-            echo "tasks=$tasks" >> $GITHUB_OUTPUT
-          fi
-          echo "Gradle tasks to run: $(cat $GITHUB_OUTPUT | grep tasks | cut -d= -f2)"
-
-      - name: Execute Gradle build
-        if: steps.detect_changes.outputs.modules != 'none'
-        uses: burrunan/gradle-cache-action@v3
-        with:
-          arguments: ${{ steps.build_tasks.outputs.tasks }}
-
       - name: Checkout Maven Repo
-        if: steps.detect_changes.outputs.modules != 'none'
         uses: actions/checkout@v6
         with:
           repository: SettingDust/maven
           token: ${{ secrets.MAVEN_REPO_TOKEN }}
           path: maven-repo
 
-      - name: Copy artifacts
-        if: steps.detect_changes.outputs.modules != 'none'
+      - name: Build all modules
+        uses: burrunan/gradle-cache-action@v3
+        with:
+          arguments: publishToMavenLocal
+
+      - name: Copy artifacts to Maven repo
         run: |
           SOURCE="$HOME/.m2/repository/$GROUP_PATH"
           TARGET="maven-repo/repository/$GROUP_PATH"
           
           mkdir -p "$TARGET"
           
-          CHANGED_MODULES="${{ steps.detect_changes.outputs.modules }}"
-          
-          if [ "$CHANGED_MODULES" = "all" ]; then
-            # Copy all published modules
-            for module in minecraft-codev minecraft-codev-core minecraft-codev-decompiler minecraft-codev-remapper minecraft-codev-forge minecraft-codev-fabric minecraft-codev-includes minecraft-codev-runs minecraft-codev-access-widener minecraft-codev-mixins minecraft-codev-legacy-forge; do
-              if [ -d "$SOURCE/$module" ]; then
-                echo "Copying $module"
-                mkdir -p "$TARGET/$module"
-                cp -r "$SOURCE/$module/"* "$TARGET/$module/" 2>/dev/null || true
-              fi
-            done
+          if [ -d "$SOURCE" ]; then
+            echo "Copying all published artifacts to maven repo..."
+            cp -r "$SOURCE/"* "$TARGET/"
             
-            # Copy side-annotations and codev-forge-runtime if present
-            if [ -d "$SOURCE/side-annotations" ]; then
-              mkdir -p "$TARGET/side-annotations"
-              cp -r "$SOURCE/side-annotations/"* "$TARGET/side-annotations/" 2>/dev/null || true
-            fi
-            
-            if [ -d "$SOURCE/codev-forge-runtime" ]; then
-              mkdir -p "$TARGET/codev-forge-runtime"
-              cp -r "$SOURCE/codev-forge-runtime/"* "$TARGET/codev-forge-runtime/" 2>/dev/null || true
-            fi
+            # Remove local-only metadata files
+            find "$TARGET" -name "maven-metadata-local.xml" -delete
+            echo "Done."
           else
-            # Copy only changed modules
-            for module in $CHANGED_MODULES; do
-              # Handle special submodule cases
-              if [[ $module == *"/"* ]]; then
-                # For submodules like minecraft-codev-core/side-annotations
-                module_name=$(echo $module | sed 's|.*/||')
-              else
-                module_name=$module
-              fi
-              
-              if [ -d "$SOURCE/$module_name" ]; then
-                echo "Copying $module_name"
-                mkdir -p "$TARGET/$module_name"
-                cp -r "$SOURCE/$module_name/"* "$TARGET/$module_name/" 2>/dev/null || true
-              else
-                echo "Warning: $module_name not found in $SOURCE"
-              fi
-            done
+            echo "ERROR: Local repository not found at $SOURCE"
+            exit 1
           fi
 
       - name: Commit and push
-        if: steps.detect_changes.outputs.modules != 'none'
         working-directory: maven-repo
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add repository/
           
-          CHANGED_MODULES="${{ steps.detect_changes.outputs.modules }}"
-          if [ "$CHANGED_MODULES" = "all" ]; then
-            COMMIT_MSG="chore(release): publish all modules"
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
           else
-            COMMIT_MSG="chore(release): publish $CHANGED_MODULES"
+            # List changed modules from git diff
+            CHANGED=$(git diff --cached --name-only | grep "^repository/$GROUP_PATH/" | cut -d/ -f4 | sort -u | tr '\n' ' ' | xargs)
+            echo "Changed modules: $CHANGED"
+            
+            MODULE_COUNT=$(echo "$CHANGED" | wc -w)
+            if [ "$MODULE_COUNT" -eq 1 ]; then
+              COMMIT_MSG="chore(release): publish $CHANGED"
+            else
+              BODY=$(echo "$CHANGED" | tr ' ' '\n' | sed 's/^/- /')
+              COMMIT_MSG=$(printf "chore(release): publish %d modules\n\nChanged modules:\n%s" "$MODULE_COUNT" "$BODY")
+            fi
+            
+            git commit -m "$COMMIT_MSG"
+            git push
           fi
-          
-          git commit -m "$COMMIT_MSG" || echo "No changes to commit"
-          git push
