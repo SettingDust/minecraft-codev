@@ -104,37 +104,41 @@ private fun executeStep(
 
     context.logger.info("Executing $name via $jarFile")
 
-    val executionResult = stdOut.outputStream().use { stdOutStream ->
-        stdErr.outputStream().use { stdErrStream ->
-            context.execOperations.javaexec {
-                executable(context.javaExecutable)
+    try {
+        stdOut.outputStream().use { stdOutStream ->
+            stdErr.outputStream().use { stdErrStream ->
+                val executionResult = context.execOperations.javaexec {
+                    executable(context.javaExecutable)
 
-                val mainClass =
-                    jarFile.let(::JarFile)
-                        .use { jar ->
-                            jar
-                                .getInputStream(jar.getJarEntry(JarFile.MANIFEST_NAME))
-                                .use(::Manifest)
-                                .mainAttributes
-                                .getValue(Attributes.Name.MAIN_CLASS)
-                        }
+                    val mainClass =
+                        jarFile.let(::JarFile)
+                            .use { jar ->
+                                jar
+                                    .getInputStream(jar.getJarEntry(JarFile.MANIFEST_NAME))
+                                    .use(::Manifest)
+                                    .mainAttributes
+                                    .getValue(Attributes.Name.MAIN_CLASS)
+                            }
 
-                classpath(jarFile, fixedPatches)
-                this.mainClass.set(mainClass)
+                    classpath(jarFile, fixedPatches)
+                    this.mainClass.set(mainClass)
 
-                args(args)
+                    args(args)
 
-                standardOutput = stdOutStream
-                errorOutput = stdErrStream
+                    standardOutput = stdOutStream
+                    errorOutput = stdErrStream
+                }
+
+                executionResult.rethrowFailure()
+                executionResult.assertNormalExitValue()
             }
         }
-    }
-
-    try {
-        executionResult.rethrowFailure()
-        executionResult.assertNormalExitValue()
     } catch (e: Exception) {
-        context.logger.error(stdErr.readText())
+        val errorText = stdErr.readText()
+
+        if (errorText.isNotBlank()) {
+            context.logger.error(errorText)
+        }
 
         throw e
     }
