@@ -12,6 +12,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
 import kotlinx.serialization.encoding.encodeStructure
+import net.fabricmc.classtweaker.api.ClassTweaker
 import net.fabricmc.classtweaker.api.visitor.AccessWidenerVisitor
 import net.fabricmc.classtweaker.api.visitor.ClassTweakerVisitor
 import org.cadixdev.at.AccessChange
@@ -27,7 +28,7 @@ data class AccessModifiers(
     private val onlyTransitives: Boolean = false,
     var namespace: String? = null,
     val namedSource: Boolean,
-    val classes: MutableMap<String, ClassModel> = hashMapOf(),
+    val classes: MutableMap<String, ClassModel> = hashMapOf()
 ) : ClassTweakerVisitor {
     fun onlyTransitives() = copy(onlyTransitives = true)
 
@@ -37,20 +38,36 @@ data class AccessModifiers(
         this
     }
 
-    fun visit(modifiers: AccessModifiers) {
-        visitHeader(modifiers.namespace)
+    fun visit(modifiers: AccessModifiers) = modifiers.accept(this)
 
-        for ((className, classModel) in modifiers.classes) {
-            visitClass(className, classModel.accessTransform)
+    fun accept(visitor: ClassTweakerVisitor) {
+        visitor.visitHeader(namespace)
+
+        for ((className, classModel) in classes) {
+            val accessWidener by lazy(LazyThreadSafetyMode.NONE) {
+                visitor.visitAccessWidener(className)
+            }
+
+            for (accessType in classModel.accessTransform.memberAccessTypes()) {
+                accessWidener?.visitClass(accessType, false)
+            }
+
+            for (injectedInterface in classModel.injectedInterfaces) {
+                visitor.visitInjectedInterface(className, injectedInterface.value, false)
+            }
 
             for ((methodName, methodModels) in classModel.methods) {
                 for (methodModel in methodModels) {
-                    visitMethod(className, methodName, methodModel.descriptor, methodModel.accessTransform)
+                    for (accessType in methodModel.accessTransform.memberAccessTypes()) {
+                        accessWidener?.visitMethod(methodName, methodModel.descriptor, accessType, false)
+                    }
                 }
             }
 
             for ((fieldName, fieldModel) in classModel.fields) {
-                visitField(className, fieldName, fieldModel.descriptor, fieldModel.accessTransform)
+                for (accessType in fieldModel.accessTransform.fieldAccessTypes()) {
+                    accessWidener?.visitField(fieldName, fieldModel.descriptor, accessType, false)
+                }
             }
         }
     }
@@ -126,6 +143,16 @@ data class AccessModifiers(
         }
     }
 
+    override fun visitInjectedInterface(
+        owner: String,
+        iface: String,
+        transitive: Boolean,
+    ) {
+        if (!shouldVisit(transitive)) return
+
+        visitInjectedInterface(owner, iface)
+    }
+
     fun visitClass(
         name: String,
         accessTransform: AccessTransform,
@@ -146,6 +173,7 @@ data class AccessModifiers(
                     accessTransform.merge(existing.accessTransform),
                     existing.methods,
                     existing.fields,
+                    existing.injectedInterfaces,
                 )
             }
         }
@@ -201,6 +229,14 @@ data class AccessModifiers(
         }
     }
 
+    fun visitInjectedInterface(owner: String, iface: String) {
+        val classModel = classes.computeIfAbsent(owner) { ClassModel() }
+        classModel.injectedInterfaces.add(ClassModel.InterfaceModel(iface))
+    }
+
+    fun asClassTweaker(): ClassTweaker =
+        ClassTweaker.newInstance().also(::accept)
+
     fun canModifyAccess(name: String) = name in classes
 
     fun getClassAccess(
@@ -249,11 +285,34 @@ data class AccessModifiers(
             else -> this
         }
 
+    private fun AccessTransform.memberAccessTypes() =
+        buildList {
+            if (access == AccessChange.PUBLIC) {
+                add(AccessWidenerVisitor.AccessType.ACCESSIBLE)
+            }
+
+            if (final == ModifierChange.REMOVE) {
+                add(AccessWidenerVisitor.AccessType.EXTENDABLE)
+            }
+        }
+
+    private fun AccessTransform.fieldAccessTypes() =
+        buildList {
+            if (access == AccessChange.PUBLIC) {
+                add(AccessWidenerVisitor.AccessType.ACCESSIBLE)
+            }
+
+            if (final == ModifierChange.REMOVE) {
+                add(AccessWidenerVisitor.AccessType.MUTABLE)
+            }
+        }
+
     @Serializable
     data class ClassModel(
         @Serializable(AccessTransformSerializer::class) val accessTransform: AccessTransform = AccessTransform.EMPTY,
         val methods: MutableMap<String, MutableList<MethodModel>> = hashMapOf(),
         val fields: MutableMap<String, FieldModel> = hashMapOf(),
+        val injectedInterfaces: MutableSet<InterfaceModel> = linkedSetOf(),
     ) {
         private val methodSignatures
             get() =
@@ -279,6 +338,16 @@ data class AccessModifiers(
             val descriptor: String? = null,
             @Serializable(AccessTransformSerializer::class) val accessTransform: AccessTransform,
         )
+
+        @Serializable
+        data class InterfaceModel(
+            val value: String,
+        ) {
+            val interfaceName get() = value.substringBefore('<')
+            val interfaceSignature get() = "L$value;"
+
+            fun hasGenerics() = '<' in value
+        }
     }
 
     class AccessTransformSerializer : KSerializer<AccessTransform> {

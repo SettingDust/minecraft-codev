@@ -57,6 +57,12 @@ fun mapAccessWidenerNamespace(visitor: ClassTweakerVisitor, source: String, targ
                 ) = awVisitor.visitField(name, descriptor, access, transitive)
             }
         }
+
+        override fun visitInjectedInterface(owner: String, iface: String, transitive: Boolean) =
+            visitor.visitInjectedInterface(owner, iface, transitive)
+
+        override fun visitEnumExtension(owner: String, addedConstant: String, transitive: Boolean) =
+            visitor.visitEnumExtension(owner, addedConstant, transitive)
     }
 
 class AccessModifierResolutionData(
@@ -103,7 +109,6 @@ class AccessModifierJsonResolutionRule : AccessModifierResolutionRule {
 
         return true
     }
-
 }
 
 private val accessModifierResolutionRules = serviceLoader<AccessModifierResolutionRule>()
