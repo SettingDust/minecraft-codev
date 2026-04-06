@@ -79,7 +79,7 @@ internal object DistAttributePostProcessor {
                                 name
                             }
 
-                            if (serverFs.getPath(path).notExists()) {
+                            if (serverFs.getPath(path).exists()) {
                                 null
                             } else {
                                 path

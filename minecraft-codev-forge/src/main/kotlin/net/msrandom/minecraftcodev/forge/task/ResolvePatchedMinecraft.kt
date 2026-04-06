@@ -24,8 +24,9 @@ import java.nio.file.StandardCopyOption
 import javax.inject.Inject
 import kotlin.io.path.*
 
-const val PATCH_OPERATION_VERSION = 6
+const val PATCH_OPERATION_VERSION = 7
 
+@CacheableTask
 abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersioned {
     abstract val libraries: ConfigurableFileCollection
         @InputFiles
