@@ -70,7 +70,6 @@ abstract class AccessWiden : DefaultTask() {
             namespace.takeIf(Property<*>::isPresent)?.get(),
             namedSource.getOrElse(false),
         )
-        val classTweaker = accessModifiers.asClassTweaker()
 
         zipFileSystem(input).use { inputZip ->
             zipFileSystem(outputPath, true).use { outputZip ->
@@ -95,7 +94,7 @@ abstract class AccessWiden : DefaultTask() {
                         val reader = path.inputStream().use(::ClassReader)
                         val writer = ClassWriter(0)
 
-                        reader.accept(classTweaker.createClassVisitor(Opcodes.ASM9, writer, null), 0)
+                        reader.accept(AccessModifierClassVisitor(Opcodes.ASM9, writer, accessModifiers), 0)
 
                         outputPath.writeBytes(writer.toByteArray())
                     }
