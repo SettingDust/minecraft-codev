@@ -38,6 +38,7 @@ childProjects.values.forEach { project ->
             testImplementation(gradleTestKit())
             testImplementation(group = "org.junit.jupiter", name = "junit-jupiter-api", version = "5.9.0-M1")
             testRuntimeOnly(group = "org.junit.jupiter", name = "junit-jupiter-engine")
+            testRuntimeOnly(group = "org.junit.platform", name = "junit-platform-launcher")
         }
 
         publishing {

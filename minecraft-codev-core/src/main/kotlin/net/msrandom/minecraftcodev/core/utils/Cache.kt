@@ -13,6 +13,7 @@ import org.gradle.api.file.Directory
 import org.gradle.api.provider.Provider
 import java.io.File
 import java.io.InputStream
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -100,7 +101,7 @@ private val operationLocks = ConcurrentHashMap<Any, Lock>()
 fun cacheExpensiveOperation(
     cacheDirectory: Path,
     operationName: String,
-    cacheKey: Iterable<Path>,
+    cacheKey: Iterable<Any>,
     vararg outputPaths: Path,
     generate: (List<Path>) -> Unit,
 ) {
@@ -110,22 +111,13 @@ fun cacheExpensiveOperation(
         coroutineScope {
             cacheKey.map {
                 async {
-                    hashFile(it)
-                }
-            }.awaitAll().toSortedSet { a, b ->
-                val bytesA = a.asBytes()
-                val bytesB = b.asBytes()
-
-                for ((a, b) in bytesA.zip(bytesB)) {
-                    val comparison = a.compareTo(b)
-
-                    if (comparison != 0) {
-                        return@toSortedSet comparison
+                    when (it) {
+                        is Path -> hashFile(it)
+                        is String -> Hashing.murmur3_32_fixed().hashString(it, StandardCharsets.UTF_8)
+                        else -> error("Unsupported cache key type ${it::class.qualifiedName}")
                     }
                 }
-
-                bytesA.size.compareTo(bytesB.size)
-            }
+            }.awaitAll().toHashSet()
         }
     }
 

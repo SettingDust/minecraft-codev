@@ -12,21 +12,10 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.CacheableTask
-import org.gradle.api.tasks.CompileClasspath
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.InputFile
-import org.gradle.api.tasks.InputFiles
-import org.gradle.api.tasks.Internal
-import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputFile
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.*
 import org.gradle.workers.WorkAction
 import org.gradle.workers.WorkParameters
 import org.gradle.workers.WorkerExecutor
-import java.nio.file.Path
 import javax.inject.Inject
 
 @CacheableTask
@@ -111,7 +100,9 @@ abstract class RemapTask : DefaultTask() {
 
     abstract class RemapWorkAction : WorkAction<RemapWorkParameters> {
         override fun execute() {
-            val cacheKey = buildList<Path> {
+            val cacheKey = buildList<Any> {
+                add(parameters.sourceNamespace.get())
+                add(parameters.targetNamespace.get())
                 addAll(parameters.classpath.map { it.toPath() })
                 add(parameters.mappings.getAsPath())
                 add(parameters.inputFile.getAsPath())
