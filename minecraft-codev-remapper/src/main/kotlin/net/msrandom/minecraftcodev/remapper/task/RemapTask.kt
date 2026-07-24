@@ -3,7 +3,7 @@ package net.msrandom.minecraftcodev.remapper.task
 import net.msrandom.minecraftcodev.core.utils.cacheExpensiveOperation
 import net.msrandom.minecraftcodev.core.utils.getAsPath
 import net.msrandom.minecraftcodev.core.utils.getGlobalCacheDirectoryProvider
-import net.msrandom.minecraftcodev.remapper.JarRemapper
+import net.msrandom.minecraftcodev.remapper.MappingService
 import net.msrandom.minecraftcodev.remapper.MinecraftCodevRemapperPlugin
 import net.msrandom.minecraftcodev.remapper.REMAP_OPERATION_VERSION
 import org.gradle.api.DefaultTask
@@ -12,10 +12,19 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
-import org.gradle.api.tasks.*
-import org.gradle.workers.WorkAction
-import org.gradle.workers.WorkParameters
-import org.gradle.workers.WorkerExecutor
+import org.gradle.api.services.ServiceReference
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.CompileClasspath
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.OutputFile
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+import java.nio.file.Path
 import javax.inject.Inject
 
 @CacheableTask
@@ -46,13 +55,16 @@ abstract class RemapTask : DefaultTask() {
     abstract val cacheDirectory: DirectoryProperty
         @Internal get
 
+    @get:ServiceReference(MinecraftCodevRemapperPlugin.MAPPING_SERVICE_NAME)
+    abstract val mappingService: Property<MappingService>
+
+    abstract val remapperId: Property<String>
+        @Input get
+
     abstract val outputFile: RegularFileProperty
         @OutputFile get
 
     abstract val objectFactory: ObjectFactory
-        @Inject get
-
-    abstract val workerExecutor: WorkerExecutor
         @Inject get
 
     init {
@@ -75,56 +87,30 @@ abstract class RemapTask : DefaultTask() {
 
     @TaskAction
     fun remap() {
-        val workQueue = workerExecutor.noIsolation()
+        val mappingsPath = mappings.getAsPath()
+        val inputPath = inputFile.getAsPath()
+        val sourceNamespace = sourceNamespace.get()
+        val targetNamespace = targetNamespace.get()
 
-        workQueue.submit(RemapWorkAction::class.java) {
-            inputFile.set(this@RemapTask.inputFile)
-            sourceNamespace.set(this@RemapTask.sourceNamespace)
-            targetNamespace.set(this@RemapTask.targetNamespace)
-            mappings.set(this@RemapTask.mappings)
-            classpath.from(this@RemapTask.classpath)
-            cacheDirectory.set(this@RemapTask.cacheDirectory)
-            outputFile.set(this@RemapTask.outputFile)
+        val cacheKey = buildList<Path> {
+            addAll(classpath.map { it.toPath() })
+            add(mappingsPath)
+            add(inputPath)
         }
-    }
+        val cacheOperationName = "remap-$REMAP_OPERATION_VERSION-$sourceNamespace-$targetNamespace"
 
-    interface RemapWorkParameters : WorkParameters {
-        val inputFile: RegularFileProperty
-        val sourceNamespace: Property<String>
-        val targetNamespace: Property<String>
-        val mappings: RegularFileProperty
-        val classpath: ConfigurableFileCollection
-        val cacheDirectory: DirectoryProperty
-        val outputFile: RegularFileProperty
-    }
+        cacheExpensiveOperation(cacheDirectory.getAsPath(), cacheOperationName, cacheKey, outputFile.getAsPath()) { (output) ->
+            val service = mappingService.get()
 
-    abstract class RemapWorkAction : WorkAction<RemapWorkParameters> {
-        override fun execute() {
-            val cacheKey = buildList<Any> {
-                add(parameters.sourceNamespace.get())
-                add(parameters.targetNamespace.get())
-                addAll(parameters.classpath.map { it.toPath() })
-                add(parameters.mappings.getAsPath())
-                add(parameters.inputFile.getAsPath())
-            }
-
-            cacheExpensiveOperation(
-                parameters.cacheDirectory.getAsPath(),
-                "remap-$REMAP_OPERATION_VERSION",
-                cacheKey,
-                parameters.outputFile.getAsPath()
-            ) { (output) ->
-                val mappings = loadCachedMappingFile(parameters.mappings.getAsPath())
-
-                JarRemapper.remap(
-                    mappings,
-                    parameters.sourceNamespace.get(),
-                    parameters.targetNamespace.get(),
-                    parameters.inputFile.getAsPath(),
-                    output,
-                    parameters.classpath,
-                )
-            }
+            service.remap(
+                remapperId = remapperId.get(),
+                input = inputPath,
+                output = output,
+                mappingsPath = mappingsPath,
+                classpathFiles = classpath.files,
+                sourceNamespace = sourceNamespace,
+                targetNamespace = targetNamespace,
+            ).join()
         }
     }
 }
