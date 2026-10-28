@@ -1,31 +1,41 @@
 package net.msrandom.minecraftcodev.forge.mixin
 
-import com.electronwill.nightconfig.core.Config
-import com.electronwill.nightconfig.core.file.FileConfig
-import net.msrandom.minecraftcodev.core.ListedFileHandler
-import net.msrandom.minecraftcodev.forge.MinecraftCodevForgePlugin.Companion.NEOFORGE_MODS_TOML
+import net.msrandom.minecraftcodev.mixins.ConfigSide
+import net.msrandom.minecraftcodev.mixins.MixinConfigHandler
+import net.msrandom.minecraftcodev.mixins.MixinConfigReference
+import java.util.Collections
 import java.nio.file.Path
+import java.util.jar.Attributes
 import java.util.jar.JarFile
 import java.util.jar.Manifest
 import kotlin.io.path.inputStream
 import kotlin.io.path.outputStream
 
 internal const val MANIFEST_MIXINS_CONFIG = "MixinConfigs"
-internal const val NEOFORGE_MIXINS_FIELD = "mixins"
 
-class ForgeMixinConfigHandler(private val names: List<String>, private val inManifest: Boolean) : ListedFileHandler {
-    override fun list(root: Path) = names
+class ForgeMixinConfigHandler(manifestNames: List<String>) : MixinConfigHandler {
+    private val manifestNames = manifestNames.toList()
+
+    override val references: List<MixinConfigReference> = Collections.unmodifiableList(
+        this.manifestNames.map { MixinConfigReference(it, ConfigSide.COMMON) },
+    )
+
+    override fun list(root: Path): List<String> = references.map { it.resource }
 
     override fun remove(root: Path) {
-        if (inManifest) {
-            val manifestPath = root.resolve(JarFile.MANIFEST_NAME)
-            val manifest = manifestPath.inputStream().use(::Manifest)
-
-            manifest.mainAttributes.remove(MANIFEST_MIXINS_CONFIG)
-
-            manifestPath.outputStream().use(manifest::write)
-        } else {
-            FileConfig.of(root.resolve("META-INF").resolve(NEOFORGE_MODS_TOML)).remove<List<Config>>(listOf(NEOFORGE_MIXINS_FIELD))
-        }
+        updateManifest(root, references.map { it.resource }.toSet())
     }
+
+    private fun updateManifest(root: Path, resources: Set<String>) {
+        val path = root.resolve(JarFile.MANIFEST_NAME)
+        val manifest = path.inputStream().use(::Manifest)
+        val current = manifest.mainAttributes.getValue(MANIFEST_MIXINS_CONFIG)
+            ?.split(',')?.map(String::trim)?.filter(String::isNotEmpty) ?: return
+        val remaining = current.map { MixinConfigReference(it, ConfigSide.COMMON).resource }
+            .filterNot { it in resources }
+        val key = Attributes.Name(MANIFEST_MIXINS_CONFIG)
+        if (remaining.isEmpty()) manifest.mainAttributes.remove(key) else manifest.mainAttributes.putValue(MANIFEST_MIXINS_CONFIG, remaining.joinToString(", "))
+        path.outputStream().use(manifest::write)
+    }
+
 }

@@ -1,0 +1,28 @@
+plugins { id 'minecraft-codev-mixins' }
+
+import net.msrandom.minecraftcodev.mixins.StripMixins
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
+
+def type = ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE
+def taskSet = providers.gradleProperty('taskSet').isPresent()
+def entries = tasks.register('writeRemovals') {
+    inputs.file('task-input.json')
+    outputs.file(layout.buildDirectory.file('entries.json'))
+    doLast { outputs.files.singleFile.text = file('task-input.json').text }
+}
+
+configurations.create('raw')
+dependencies.add('raw', files('mod.client-1.2.jar'))
+dependencies.registerTransform(StripMixins) {
+    from.attribute(type, 'jar')
+    to.attribute(type, 'stripped')
+    parameters.removalsFile.set(taskSet ? layout.file(entries.map { it.outputs.files.singleFile }) : layout.projectDirectory.file('cleanup.json'))
+}
+def stripped = configurations.raw.incoming.artifactView { attributes.attribute(type, 'stripped') }.files
+
+tasks.register('consume', Sync) {
+    if (taskSet) dependsOn(entries)
+    from(stripped)
+    into(layout.buildDirectory.dir('consumed'))
+    doLast { println('STRIP-CONSUMED') }
+}

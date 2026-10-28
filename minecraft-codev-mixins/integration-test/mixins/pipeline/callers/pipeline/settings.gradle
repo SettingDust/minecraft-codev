@@ -1,0 +1,2 @@
+rootProject.name = 'pipeline-caller'
+buildCache { local { directory = file('build-cache') } }

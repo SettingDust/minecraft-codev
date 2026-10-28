@@ -1,0 +1,1 @@
+{"id":"demo","mixins":["a.json",{"config":"b.json","environment":"client","vendor":7},{"config":"c.json","environment":"*"}],"custom":{"keep":true,"label":"元数据"}}

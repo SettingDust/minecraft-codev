@@ -25,7 +25,3 @@ tasks.compileKotlin {
         jvmDefault = JvmDefaultMode.ENABLE
     }
 }
-
-tasks.test {
-    dependsOn(tasks.pluginUnderTestMetadata)
-}

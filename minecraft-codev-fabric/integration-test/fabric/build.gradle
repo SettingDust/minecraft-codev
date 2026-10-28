@@ -1,0 +1,35 @@
+plugins { id 'java' }
+
+// The host supplies the locked engine/ASM closure; this project resolves no dependencies.
+def fixtureClasspath = files(providers.gradleProperty('fixtureClasspath').get().split(File.pathSeparator))
+sourceSets.main.compileClasspath += fixtureClasspath
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+    options.encoding = 'UTF-8'
+    options.compilerArgs.add('-proc:none')
+}
+
+def fixtureJar = { String name, String variant, List<String> classes ->
+    tasks.register(name, Jar) {
+        archiveFileName = name + '.jar'
+        destinationDirectory = layout.buildDirectory.dir('inputs')
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        from(sourceSets.main.output.classesDirs) { classes.each { include it } }
+        from('variants/' + variant)
+    }
+}
+
+fixtureJar('target', 'target', ['demo/Target.class'])
+['client-mixins', 'server-mixins', 'scalar-reference', 'inactive-parent', 'invalid-reference',
+ 'metadata-discovery', 'metadata-scalar', 'metadata-object', 'metadata-duplicates', 'metadata-baseline', 'empty'].each { name ->
+    fixtureJar(name, name, ['demo/mixin/ClientOnly.class'])
+}
+fixtureJar('input-config', 'client-mixins', ['demo/Target.class', 'demo/mixin/ClientOnly.class'])
+fixtureJar('input-config-external', 'client-mixins', ['demo/Target.class'])
+
+
+tasks.named('assemble') {
+    dependsOn tasks.withType(Jar)
+}

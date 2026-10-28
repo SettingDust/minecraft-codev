@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.testing.Test
 import org.jlleitschuh.gradle.ktlint.KtlintExtension
 
 plugins {
@@ -9,6 +10,10 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.6.0" apply false
     `java-gradle-plugin`
     `maven-publish`
+}
+
+tasks.test {
+    dependsOn(":minecraft-codev-mixins:test", ":minecraft-codev-fabric:test", ":minecraft-codev-forge:test")
 }
 
 subprojects {
@@ -56,7 +61,9 @@ childProjects.values.forEach { project ->
             }
         }
 
-        tasks.test {
+        tasks.withType<Test>().configureEach {
+            systemProperty("org.gradle.testkit.dir", gradle.gradleUserHomeDir.absolutePath)
+
             maxHeapSize = "3G"
 
             useJUnitPlatform()

@@ -1,0 +1,1 @@
+{"id":"demo","accessWidener":"keep.aw","jars":[{"file":"nested.jar"}],"custom":{"keep":true},"mixins":[{"config":"client.json","environment":"client","vendor":7}]}

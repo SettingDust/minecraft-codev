@@ -1,0 +1,216 @@
+# Mixin 重实现 Context
+
+[Work](work.md) · [Plan](plan.md) · 唯一执行图：[Waves](waves.md)
+
+本文件是加工后的当前边界与已采用事实，不是完整原报告、产品权威或实现验收。权威 assessment 与入口见 [Work](work.md#权威复用)。Router 已采用用户“可以”为现有类型名修正版范围的实施确认，并采用随后 C6 确认为原生选项简化及局部恢复维护依据；必要 PRD/Spec 澄清已完成。本次仅维护已采用 R04 completion、Router supplied WR04 satisfied 与当前选定 Plan 完成事实，不追加实现或运行。
+
+## 已确定的合同
+
+用户已明确选择保留公开 Task 名 `Mixin`（现有 `task.Mixin`，此处为动词，不附加 PreApply 用途含义）和现有 Transform 名 `StripMixins`；不新增 `PreApplyMixins` 类型，不因改名退役旧 Task 或安排兼容别名/纯命名迁移。用户已确认该范围，并确定 producer `Mixin.appliedMixins: RegularFileProperty`（仍为 file），JAR `outputFile` 不变；consumer `StripMixins.Parameters.removalsFile` 保持中立。同格式 provider 直接连接，不新增 DTO、alias 或转换层；内部重建/旧专用逻辑清退范围不变，命名确认本身不等于源码落地；R01 后 producer 新属性/default 已落地；I02:g1 后 consumer 已为 `removalsFile`，独立 Strip completed，I03:g1 已采用 partial，完整 caller/cache 由新 R03 修复后经 R04 补齐。
+
+- 通用引擎选项由 Mixin 原生读取宿主系统属性及 default，不提供 public `engineOptions` / 等价 Task raw override，不注入独立快照、不重解释原生继承/解析规则、不为此适配 getter 字节码；Codev 不写或泄漏 JVM 全局属性。专用 `side` 与可选 `mappingFile/sourceNamespace/targetNamespace/refmapContext` 保留并实际生效，无 mapping 不无条件启用 `REFMAP_REMAP=true`。内部仅观测实际影响输出的相关宿主属性及未设置/default 状态作为 Gradle 输入，不能扫描无关全 JVM 环境；载体/枚举/序列化/缓存算法未冻结。
+- Codev 实现预应用 Task 和逐 JAR Strip Artifact Transform；caller/集成插件注册、连参数/生产依赖、组织同操作集合，选择 configuration/artifact view、请求属性并消费。Codev 不代选用途、不自动接线，不提供聚合出口或要求 caller 自行写 JSON 编辑算法。
+- producer 读 raw target、raw Mixin sources、raw resolution；完整清理集合恰为该操作 raw sources＋derived target，含目标自带 config。resolution-only 不扩入、producer 不读自己的 strip view、不同 operation 的集合/文件不并集。
+- Mixin 执行和日志归 Mixin；收到应用通知即把完整 config 资源路径→原数组字符串纳入集合。发现/候选不授予资格；不核所有目标完成、无报错或最终效果，不解析日志；引擎抛出的异常照常传播。未知归因不造键，也不能把可归属的正常通知永远丢成 unknown 来完成实现。
+- Strip 输入表达待移除条目，与生产者身份、预应用资格或是否应用过无关。只删除指定 config 的 `mixins/client/server` 数组内全部精确原字符串匹配；同数组、跨数组、跨 JAR 同键一并删除，不用 source ID/hash/下标或逐来源完成性。不同路径/原字符串、未知字段、剩余值与顺序、空配置文件、类/refmap/Loader metadata/其他资源保留。
+- file 是 Gradle 原生 tracked Task output/Transform input；有效空集合与缺失/无效/陈旧输入不同。跨 loader 仅传 JDK/simple values；关闭后无 live engine 对象，缓存消费不依赖 producer 内存。
+- 通知资格不等于组件完成。写入、关闭/runtime exit、发布失败仍向外失败，受影响输出不可作为当前成功消费；required strip 失败不否定独立完成的 applied target，但不得报告整个清理流成功。保留输入别名/hardlink/目录和 ZIP 路径保护、staging/ownership、异常 cause、TCCL/资源释放。隔离不是任意插件沙箱。
+
+原逐 Task raw options 是先前派生 Plan 的实现安排，不是五份权威曾明确接受的公开承诺；getter 适配从未接受。现撤下该候选不构成架构撤销。`mixin-native-options-authority-impact:g1` 的三族核定、PRD R3 / Spec 五处修订 g1 completed 已由 Router 采用：当前版本可 reuse，ADR 稳定身份及 Accepted 状态不变；无新的 options 架构/权限待定。该权威澄清本身不证明内部观测已实现；实现完成事实另见下述 R02 记录。
+
+以上依据 [PRD](../../prd/codev-mixin-rework.md)、[Spec](../../spec/mixin-preapplication.md)、[ADR 当前适用性](../../adr/mixin-operation-isolation.md#current-product-applicability)，不复制其全部合同。
+
+## 已采用的历史与限制
+
+| 事实来源/范围 | 已可靠采用的结论及限制 |
+| --- | --- |
+| [旧 pipeline Context](../mixin-artifact-pipeline/context.md#已采用的实施与验证事实)及[旧图](../mixin-artifact-pipeline/waves.md) | MAP-I02、MAP-I03 的业务 Result completed，MAP-W02/W03 只在旧组件范围 satisfied；不是新重实现证据。MAP-I03 记录 28 个不同方法成功、CRC 增量另复验 2 项，非全仓库认证。 |
+| 同上 MAP-I04 | 业务 Result **partial**，MAP-W04 不满足/未释放。六个新增 TestKit 方法，最后实际执行两项：真实 caller 方法失败、独立 Transform probe 通过，其余四项未执行；外层为 2 tests / 1 failed / BUILD FAILED。probe 的参数/inputArtifact 变更、有效空及四个非法信息负例不能替代 producer/caller/cache。 |
+| 默认输出 regression | 旧 `appliedA` 在 producer 执行前查询默认 `cleanupFile` 时，映射自身 `outputFile` 被拒绝，未进入完整链；当时 [Task](../../../minecraft-codev-mixins/src/main/kotlin/net/msrandom/minecraftcodev/mixins/task/Mixin.kt) 使用 `cleanupFile.convention(project.layout.file(outputFile.map { ... }))`。原失败事实保留；R01 已改 producer `appliedMixins` 与独立 defaults，真实 applied-only smoke 通过，但旧 MAP-I04/全链不因此完成。本次未重跑。 |
+| 旧恢复路线 | 旧四文档仍写 C5 repair/recovery pending/in progress；这是此前记录。当前用户已明确暂停并取消该恢复路线、撤下补验；本轮不编辑旧图、不 resume、不将旧 partial 自动升级或释放 gate。 |
+| Router 已完整采用的静态去留评估 | `mixin-legacy-implementation-audit` generation 1，业务 completed；已查 39 个 owner 文件、59 个 owner 测试正文和 13 个必要平台测试，含 SPI/反射/字符串/fixture 引用；**未运行测试**。本次采用其分类，不重做全量审计，也不把正文计数当通过数。完整原 Result 不在仓库，本记录不保证原件永久取回。 |
+| 旧 G1 | 保持原 accepted/closed 及各 failed/partial/unknown 的原范围；不重开、不重写，也不作当前验收。历史导航见 [旧 pipeline Context](../mixin-artifact-pipeline/context.md)。 |
+
+处理事实不依赖项目外 Result/session 定位器，不另存报告、快照或证明文件。已采用历史无需因仓库缺原 Result 重开；未来代码变化后仍须取得覆盖新实现的实际证据。
+
+## 既有定点核对与去留输入（本次不重做）
+
+以下描述 R01/R02 前的核对与去留输入，不是当前待做清单；R02 已完成 producer/平台部分见下述完成记录。已删除的历史类仅保留名称，不提供失效链接。
+
+| 既有核对边界 | 对本计划的影响（不是新运行结论） |
+| --- | --- |
+| [Task](../../../minecraft-codev-mixins/src/main/kotlin/net/msrandom/minecraftcodev/mixins/task/Mixin.kt)、[Runner](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/OperationRunner.java)、[EngineOperation](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/runtime/EngineOperation.java) | 当时有真实执行/隔离职责，也混有长位置参数、重复 discovery、手工来源摘要、binding 前后复算。重建编排，不给旧容器套对象壳；保留实际解析/资源选择，不保来源证明账本。 |
+| [PinnedMixinAdapter](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/runtime/PinnedMixinAdapter.java) | 当前 `preApply` 关联原键，`onApply` 收通知；版本敏感私有字段只服务归因，不需要全目标成功/残留对账。新链必须验证精确原键和 parent/动态无原键边界，不把静态代码当真实通知证明。 |
+| `runtime/RecordData.java`（历史容器，R02 已删除） | 文件读写、严格 JSON/path、专用 side/mapping/context、实际有序解析职责仍需要；`binding/configInputs/identity/digest/SCOPE` 和 proof 容器不沿用。原 raw options 的复算/相等检查不能作为新边界；新链保留原生属性/default 读取与内部输入观测，专用显式 side/mapping/context 实际生效，不能靠拒绝其与继承值的差异或 JVM 全局写入保绿。 |
+| [Strip](../../../minecraft-codev-mixins/src/main/kotlin/net/msrandom/minecraftcodev/mixins/StripMixins.kt)、`SelectiveConsumer.java`（当时精确编辑器，I02 已替换为 [ExactMixinStripper](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/ExactMixinStripper.java)）、[发布保护](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/OperationPublication.java) | 优先局部复用精确 JSON/ZIP、实际 I/O/关闭失败与输入/发布保护，不保 selective 命名、proof 字段或旧测试类形状。 |
+| [Mixin listing SPI](../../../minecraft-codev-mixins/src/main/kotlin/net/msrandom/minecraftcodev/mixins/MixinListingRule.kt)、`FabricMixinConfigHandler.kt` / `ForgeMixinConfigHandler.kt`（历史 writers，R02 已删除） | 有真实配置/环境发现和 metadata writer 耦合；改成 Mixin 专用只读发现，退出 selective/all-delete writer/interface，保持发现范围和非法输入错误。不能留下悬空平台 SPI。 |
+| [插件入口](../../../minecraft-codev-mixins/src/main/kotlin/net/msrandom/minecraftcodev/mixins/MinecraftCodevMixinsPlugin.kt)、[模块构建](../../../minecraft-codev-mixins/build.gradle.kts) | 旧配置便利扩展与 Groovy 注册须成对退出；保留可加载的最小插件入口和既有引擎/mapping-io/test 注册职责，不重设计根构建。此为 R01 前核对：当时旧 host services 的实体 SPI 仍可达。R01 已退出这些类/实体 SPI/Groovy 注册并保留 operation-owned services；R02 复用这一 baseline，不重放删除，也不误删隔离域原生 services。 |
+| [caller fixture](../../../minecraft-codev-mixins/src/test/resources/pipeline-caller.gradle) | 已有项目级 Transform 注册、raw sources＋derived target、文件 provider、显式 producer dependency、applied-only/probe 场景。迁移真实 API 和有效断言；不能显式设置默认 appliedMixins 路径、代实现生产逻辑或加空文件桥绕过 regression。 |
+| [Core 通用接口](../../../minecraft-codev-core/src/main/kotlin/net/msrandom/minecraftcodev/core/ListedFileHandler.kt)、[Includes consumer](../../../minecraft-codev-includes/src/main/kotlin/net/msrandom/minecraftcodev/includes/StripIncludes.kt) | 通用 `remove` 另有真实使用者；Mixin 退出旧 metadata 能力不授权清除 Core/includes 通用消费者能力。 |
+
+此前已采用记录指出工作树含大量已有修改/未跟踪内容；本次不复查源码/工作树、不建立冻结或摘要台账。表中是既有核对的处理事实，只有选项相关规划边界按当前 authority 更新；全量分母与测试正文结论仍来自已采用静态评估，非本次检查。
+
+## 当前执行事实与证据限制
+
+I01/R01/R02/I02 条目保留各轮采用及记录维护的历史观察；其中“本次/当前”若未另标注，是该轮记录时点，不是本轮重新执行。I03 失败观察保留在 [I03 partial](#mri-i03-partial-事实与目标内-mixin-class-缺口)；其“当前 XML/无成果”等是当轮时点。R03 已修复局部缺口，其最终同次八项全通过为当轮记录，见 [R03 completed](#mri-r03-completed-事实与独立-gate-判断)；最新 XML 已被 R04 的 H 单方法覆写，详见 [R04 completed](#mri-r04-completed-事实与-router-supplied-gateplan-判断)。不回写 I03 五方法 0 通过或累计旧数。
+
+### MRI-I01 blocked 历史（原调用时范围）
+
+Router 已完整消费并关联 `mixin-reimplementation-producer:g1` / **MRI-I01:g1**：业务 Result **blocked**，不是外层 metadata completed。0 生产、平台、资源及正式测试源码改动；只有临时 build 复现与通常 build/test 输出。尚无新 producer、RecordData 拆除、host/SPI/Groovy 退出、只读发现/平台迁移、新命名/default 或完整通知/参数/隔离/资源验收。原 Result 记录 producer/consumer 源码仍为 `cleanupFile`，默认清单仍映射自身 `outputFile`；本次不另作源码或运行复验。
+
+- 真实既有 `MixinMappingTests.realRefmapMemberInfoChainKeepsRawKeys`：1 test、0 failures/errors，含方法自身既有 cleanup 断言；不是新 Strip/caller/cache 证据。首次命令因未列出现安装 JDK 8 的 toolchain discovery 失败、未跑 test，补充该 JDK 路径后才成功；未安装或修改工具链配置。
+- build-only probe 复现显式 enum option 被拒绝、两个输出不存在且宿主属性未变；拒绝发生在 bootstrap 前，退出码 0 只证明复现断言成立，不证明显式 options 已作用于 engine。在原 g1 合同下，options 额外局部接入机制/权限未定，故停止且未采用 bytecode adapter、process isolation、全局属性或支持收窄方案。随后已确认原生选项简化并完成 PRD/Spec 澄清，原 raw override 需求及 getter 候选不再是活跃要求；这不倒改原 blocked 或把拒绝复现算成新合同通过。
+- MRI-I01 completion 未满足，Router 原判 MRI-W01 pending/未释放并阻断当时依赖；该历史保持。未运行新默认 outputs applied-only/只改 outputFile smoke、独立 Strip、真实 caller 或缓存闭包。原 I01 不重置为 pending，原 W01 不因新恢复完成自动释放。
+- 当时 C5 恢复图建立 **MRI-R01 / MRI-WR01**（pending）承接全部未完 producer、替换为已确认原生选项边界；当时 I02 依赖 R01/WR01、I03 依赖 R01＋I02 及 WR01/W02。该准备事实保留，但当前执行状态与活跃 edges 由下面 R01 partial / R02 更新，不将旧 pending 误作未启动。新旧 item 各保留独立 Handler/Result。
+
+本次只读确认仍存在可读的 [mapping 日志](../../../minecraft-codev-mixins/build/mri-i01-context-check.log)、[probe 源码](../../../minecraft-codev-mixins/build/tmp/mri-i01/ExplicitOptionsProbe.java)、[拒绝检查日志](../../../minecraft-codev-mixins/build/mri-i01-explicit-options-check.log)。原先核对的 `minecraft-codev-mixins/build/test-results/test/TEST-net.msrandom.minecraftcodev.mixins.MixinMappingTests.xml` 现已不在当前 test-results；不再将它作为可读链接，原 1 test 成功事实不重置。build artifacts 可被后续运行覆盖，不承诺原 XML 或完整 Result 永久可取。
+
+### MRI-R01 partial 事实与可复用基线
+
+Router 已完整读取并关联 `mixin-producer-native-options-reimplementation:g1` / **MRI-R01:g1** 的完整业务 Result **partial**；外层 backend `completed` 只表明调用终结，不满足 producer predicate。无其它活动作者；此前记录维护已完整读取原 envelope 并解码 `result`；本次复用该采用历史，不把摘要当原件。仓库仅加工可信事实，不持久写入 Result/session/home 定位器或复制长报告。
+
+- **已完成效果**：producer `cleanupFile`→`appliedMixins: RegularFileProperty`，保留 `@OutputFile`；outputFile 与 appliedMixins convention 各自直接来自 buildDirectory 下 `mixin/<task-name>/applied.jar` 与 `removals.json`。插件缩为可加载的空 Project 入口，不自动接线；旧 GradleMixinService / GradleGlobalPropertyService 类、对应两个实体 service SPI、Groovy ExtensionModule 和旧便利表面退出，operation-owned services/Domain 合成 SPI 保留。producer tests、input-binding tests 和 caller fixture 的 producer 引用已迁移；Transform 自身参数仍是 `cleanupFile`，中立 removalsFile 与完整 Strip 尚未完成。
+- **实际验证（R01 执行，不是本次重跑）**：在 Codev 根目录 `./gradlew.bat :minecraft-codev-mixins:test`，selectors 为 `net.msrandom.minecraftcodev.mixins.MixinInputBindingTests.testKitProducerDefaultsAreQueryableBeforeExecution`、`net.msrandom.minecraftcodev.mixins.MixinProducerTests`、`net.msrandom.minecraftcodev.mixins.MixinOperationIsolationTests`、`net.msrandom.minecraftcodev.mixins.OperationPublicationTests`（各用 `--tests`）；附 `--offline --no-configuration-cache --no-daemon '-Pkotlin.incremental=false'` 及 `-Dorg.gradle.java.installations.paths` 指向当时既有 JDK 安装列表。最终 [非增量成功日志](../../../minecraft-codev-mixins/build/mri-r01-recompile-quoted.log) 为 BUILD SUCCESSFUL；当时读取的 InputBinding/Producer/Isolation/Publication 四份 XML 分别 1/9/3/7 tests，合计 **20，failures/errors/skipped 均 0**。这些有效路径涵盖通知原键/重复/有效空/部分与 unknown、异常/重试、loader-close/I/O/发布/取消、输入保护、顺序/并发/类资源优先/TCCL/释放，不是整个新 producer 合同验收。
+- **真实 default smoke**：同一新 TestKit selector 跑两个 caller 构建：全默认 outputs，以及只改 outputFile、appliedMixins 不覆写。配置阶段查询路径，`:produce` 与 `:appliedOnly` 均 SUCCESS，producer 与消费副本 `demo.Target.value()` 断言为 **42**、原输入 **1**，通知为 `{"fixture.json":["Good"]}`。未代写通知、未显式填默认路径、未运行 Strip 或证明缓存闭包。现有 [default log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerDefaultsAreQueryableBeforeExecution/runs/both-default-outputs.log)、[custom target log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerDefaultsAreQueryableBeforeExecution/runs/custom-target-default-notifications.log)及 [fixture 目录](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerDefaultsAreQueryableBeforeExecution/) 保存 build 脚本、小 JAR 和 JSON。本次核对日志中执行前路径/调度及 JSON/JAR 可读性；42/1 行为断言采用完整 Result 和 passing selector，不在本次重新执行类。
+- **包检查与失败限制**：首次增量产物还带已删 host/DSL class，不能从源码删除推断包退出；未引用 `-Pkotlin.incremental=false` 被 PowerShell 拆成 `.incremental=false` task，[失败日志](../../../minecraft-codev-mixins/build/mri-r01-recompile.log)为选任务失败、未跑测试。引用参数后重编译并重跑上述 20 项。R01 最后检查 [当前版本 JAR](../../../minecraft-codev-mixins/build/libs/minecraft-codev-mixins-0.1.0+terrarium.0.6.0.jar) 无旧 host/PluginKt/Companion 或三个旧注册条目；此前记录维护只读 ZIP entry 检查同样为 **0**，最小插件与 OperationService/OperationProperties 在包内。既存 `minecraft-codev-mixins/build/libs/minecraft-codev-mixins-0.6.0.jar` 仍含旧实现，不当当前产物、不删除/重包装。
+- R01 另实际主动 LSP 检查两 Kotlin＋两 Java 修改文件 clean/0 diagnostics，引用搜索未见已删 host/便利扩展/Groovy 生成类源码 caller，`git diff --check` 无空白错误（既有 LF/CRLF 提示）。本次不重跑 LSP、源码搜索或 Git；未将混合 HEAD diff 全归于 R01。
+- **R01 终结时未完成（以下由 R02 承接，不代表当前 producer 缺口）**：public engineOptions、operationScope、Side enum、手工 ordered identity 仍在；尚未实现简单 side、专用 mapping/context 实效与原生相关宿主属性/未设置/default 的内部输入观测及完整无污染验证。RecordData 总容器、binding/来源摘要、旧 options 复算/相等检查、长参数与重复 discovery 未拆，host/runtime 最小编排未重建。Mixin listing/Fabric/Forge 只读发现与专属 metadata writer/接口及直接 caller/测试迁移未做；mapping/refmap/context 全组、MixinFailureStageTests、native 行为/观测一致、平台 focused 与触及 AW/AT/nested-JAR 检查未完成；独立 Strip/整链 caller/cache 未验证。没有新的产品/架构/权限选择，也不因旧 raw-options blocked 重问批准。
+
+### 当前 producer 恢复与下游边界
+
+Router 已采用 **MRI-R02:g1 completed / MRI-WR02 satisfied** 和 **MRI-I02:g1 completed / MRI-W02 satisfied**，保留当时独立核对 membership、前置及 evidence/release predicate 的判断；R02 的 whole producer 判断仅覆盖当时实测输入与组件场景，**不覆盖本次暴露的 target-owned Mixin class dispatch/preservation 缺口**，不再据此宣称当前 producer 全覆盖。Router 已从 full join 完整读取并关联 `mixin-real-caller-cache-reimplementation:g1` / **MRI-I03:g1**，采用业务 **partial**（backend completed 仅表示调用终结）；**MRI-W03 pending/未释放**。原 I03 完整 predicate/owner/verification 与前置保留历史，不作为新路线的 completed prerequisite。当前同范围恢复仍为 **MRI-R03→MRI-R04**：Router 已完整读取并关联 `mixin-target-owned-class-dispatch-repair:g1` / **MRI-R03:g1 completed**，并独立判 **MRI-WR03 satisfied**；**MRI-R04:g1 completed / MRI-WR04 satisfied** 已由 Router 采用/提供判断，结合 WR02/W02/WR03 三个既有 satisfied gates 建立当前选定 Plan 完成；本 writer 只记录 supplied judgement，不重判其它 gates。I01 blocked、R01 partial 与 W01/WR01 pending/未释放不变。采用事实与限制见 [R03 Context](context.md#mri-r03-completed-事实与独立-gate-判断)。 R02/WR02 的 item prerequisite 与 gate predecessors 仍 `[]`；R01 partial 是历史事实与有效 baseline，不是 completed prerequisite。不回放已落地的命名/default/删除副作用，R02 completed 不倒改旧状态。
+
+既有 I02→R02 / W02→WR02 edges 保持；I03→[R02,I02] / W03→[WR02,W02] 的原 edges 及完整 predicate/owner/evidence 仅保留历史，I03 现为 partial、W03 pending/未释放。活跃 R03 的 item prerequisites 为 `[MRI-R02, MRI-I02]`、WR03 predecessors 为 `[MRI-WR02, MRI-W02]`，分别提供 producer 基线与真实 caller regression 所需组件；R04 的 item prerequisites 为 `[MRI-R02, MRI-I02, MRI-R03]`、WR04 predecessors 为 `[MRI-WR02, MRI-W02, MRI-WR03]`，消费修复及组件。I03 partial 只是已采用输入，不是 completed prerequisite。R03:g1 completed / WR03 satisfied 已由 Router 采用并独立判断；R04:g1 completed 与 Router supplied WR04 satisfied 及当前选定 Plan 完成见下文新增记录，不由静态图推导。具体分解只在 [Waves](waves.md)。
+
+### MRI-R02 completed 事实与独立 gate 判断
+
+Router 已完整读取并关联 `mixin-producer-remaining-native-reimplementation:g1` / **MRI-R02:g1** 业务 **completed**；当时 whole producer / Spec 适用证据判断限于以下实测输入与组件场景。Router 独立核对 **MRI-WR02** 的 `itemIds=[MRI-R02]`、`predecessorWaveGates=[]` 及 release predicate，判 **satisfied/释放**，并非 backend/display success 推导。此历史不 reset；I03 后已明确目标自带 config/Mixin classes 的 dispatch/preservation 场景尚不成立，需 R03 修复，不能把历史 whole producer 表述当作当前全覆盖。
+
+- **采用 scope/effects**：真实 raw target/sources/runtime 经 fresh realms 与原生服务产生可调用 applied target、准确完整 config 路径→原数组字符串通知，关闭/退出后才发布两个 tracked outputs。通用选项由 Mixin 原生读取，内部只读 provider 跟踪相关 pinned Option/bootstrap/service/command-line/JavaVersion 属性及 unset（空列表与空字符串区分），不扫描全 JVM、不复算解析/default、不注入快照/适配 getter、不写全局属性；专用 String side（default UNKNOWN）、mapping/context 真正生效，无 mapping 不强启 remap。去 public engineOptions/operationScope/Side enum/manual identity，RecordData 拆为 StrictJson/ArchiveResources/AppliedMixins 小职责；保留精确 remapper/原键通知、JDK 跨域、TCCL、输入别名/hardlink/目录与 staging/失败保护。两个 owned loaders 均尝试关闭，后一个关闭异常 suppressed 到首错。
+- **平台/迁移边界**：Mixin listing 与 Fabric/Forge SPI 已只读，旧 applicability/SelectiveMixinConfigHandler/平台专属 metadata writers 退出，保留 discovery/path/environment/parent/manifest/TOML 与 Core/includes 通用能力。必要测试/动态源码/SPI/resources/caller 引用迁移；R02 终结时 SelectiveConsumer 仅迁移 JSON/path/file helpers、Strip 仍 cleanupFile，当时未完成 I02 或 I03；此为 R02 历史范围，I02 后独立 Strip 已完成，I03:g1 partial 后同链缓存仍未完成，由 R04 承接。
+- **实际方法与覆盖（R02 执行，本次未重跑）**：Codev 根现 wrapper，offline/no-configuration-cache/no-daemon、引用的非增量 Kotlin 参数及既有 JDK discovery；沿 JUnit/TestKit/pluginUnderTestMetadata、launcher 17/fixture release 11。Mixins selectors 为 MixinProducerTests、MixinMappingTests、MixinPreapplicationTests、MixinFailureStageTests、MixinOperationIsolationTests、OperationPublicationTests 全组，以及 MixinInputBindingTests 的 testKitProducerDefaultsAreQueryableBeforeExecution / identicalConfigPluginAndRefmapShadowsAreRejected；分别 **11/6/4/8/3/7/2＝41**。FabricApplicabilityRepairTests/FabricMixinMetadataTests **5＋2＝7**，ForgeMixinMetadataTests/ForgeRetainedBaselineTests **4＋2＝6**，共 **54 focused checks，失败/错误/跳过均 0**。涵盖真实 native boolean/enum/default/fallback 与 tracked raw/unset/无污染、mapping/refmap/context/owner/overload/双向/null/歧义/非法 tuple、parent/动态/重复/空/部分/unknown/正常错误日志通知、fresh 隔离/重试/并发/冲突/TCCL/JAR 释放、native 多阶段失败/取消/I/O/close/发布/stale/输入保护；Fabric AW 与 Forge AT/nested-JAR retained baseline 实际执行。runtime 改变后真实两种 default TestKit（全默认、只改 outputFile）已重新解析执行并消费目标，不只是沿用 R01 smoke。
+- **最后关闭修正复验**：try-with-resources 保证 RuntimeException/安全拒绝也不跳过另一个 loader，新增 suppressed-error 断言；Producer/Isolation **11＋3＝14** 再通过，其余有效证据复用。不是 68 个独立 methods，也不是完整 caller/cache 证明。[required 日志](../../../minecraft-codev-mixins/build/mri-r02-required.log)与 [close 日志](../../../minecraft-codev-mixins/build/mri-r02-close.log)可读且 BUILD SUCCESSFUL；54 历史组数来自完整已采用 Result/当时读取，不声称普通日志有 method counts。此前维护时 Mixins XML 仅关闭复验 **14**，随后由 I02 的 **24** 覆盖，现又由 I03 最终 **1 failure** 覆盖；[Mixins XML 目录](../../../minecraft-codev-mixins/build/test-results/test/)不重建 R02 或 I02 全组；[Fabric XML](../../../minecraft-codev-fabric/build/test-results/test/)为 **7**、[Forge XML](../../../minecraft-codev-forge/build/test-results/test/)为 **6**，当前均 0 failures/errors/skipped。
+- **可移植载体**：[default fixture](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerDefaultsAreQueryableBeforeExecution/)的两个 run logs、JSON 与 JAR 现可读；当前版本 [Mixins JAR](../../../minecraft-codev-mixins/build/libs/minecraft-codev-mixins-0.1.0+terrarium.0.6.0.jar)、[Fabric JAR](../../../minecraft-codev-fabric/build/libs/minecraft-codev-fabric-0.1.0+terrarium.0.7.2.jar)、[Forge JAR](../../../minecraft-codev-forge/build/libs/minecraft-codev-forge-0.1.0+terrarium.0.9.2.jar)可读。本次不运行其目标类。R02 已检查旧容器/handler/host/实体 Mixin/Groovy 注册 entries 为 0、平台 SPI 指向现 provider；邻旁旧短版本包不算当前产物、不删除。
+- **失败与静态限制**：早期附加提示误入源码及 final getSideName override 编译失败已修正（[first 日志](../../../minecraft-codev-mixins/build/mri-r02-first.log)、[components 日志](../../../minecraft-codev-mixins/build/mri-r02-components.log)保留）；初轮 native 测试因同 project systemProperty provider 缓存旧观测失败，改直接只读 System property provider 后 required/close 通过。Forge 首次两个 pattern 未命中，未计覆盖，后显式真实 retained baseline 2 项通过。R02 主动 probe 31 个相关 Java/Kotlin/fixture 和最后两个关闭修改文件无语言 errors，保留 3 个辅助 warnings（stderr println 两处、OperationService 反射审计）；Groovy LSP unsupported，不能冒称静态全覆盖，但 default fixture 已实际 Gradle 解析运行。JDK17 SecurityManager 故障注入有弃用警告。
+
+这些是已采用 status/scope/checkmethods/gatejudgment 与 material limitations，不是完整原报告、永久原件或本次重验。普通 build logs/XML/fixture/JAR 可覆写，当前 XML 不能重建前轮 41；原 mapping XML 缺失仍不造链接或 reset 历史。未跑全仓库、全平台/Forge patch 或 configuration-cache；producer completed 不宣称全目标应用成功、Strip 完成或 caller/cache 闭环。
+
+### MRI-I02 completed 事实与独立 gate 判断
+
+Router 已完整读取并可靠关联 `mixin-independent-strip-reimplementation:g1` / **MRI-I02:g1** 的业务 **completed**，另依据 W02 的 `itemIds=[MRI-I02]`、已 satisfied 的 `predecessorWaveGates=[MRI-WR02]` 与下列四组 evidence/predicate 独立判 **MRI-W02 satisfied/释放显式 dependents**。此前记录维护已普通读取完整 JSON、解码完整 result 并核对 subagentId/generation 1/completed；本轮复用已采用事实与既判 gate，不重判、不再次释放 WR02/W02、不实施或复验。现 I03 partial/W03 pending，前置曾成立不等于完成或新增许可。
+
+- **效果与边界**：[StripMixins](../../../minecraft-codev-mixins/src/main/kotlin/net/msrandom/minecraftcodev/mixins/StripMixins.kt) 保持公开类型名，唯一参数为 `Parameters.removalsFile: RegularFileProperty`，保留 InputFile/PathSensitivity.NONE、InputArtifact/正常 outputs，无 cleanupFile alias/producer 资格检查。[ExactMixinStripper](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/ExactMixinStripper.java) 替代 SelectiveConsumer，serializeNulls 修复未知 null 丢失，履行既有保留合同而非新机制。LegacyStripMixinsTests 整类与 unused r05/RetentionPlugin 退出，有效断言迁至 [StripMixinsTests](../../../minecraft-codev-mixins/src/test/java/net/msrandom/minecraftcodev/mixins/StripMixinsTests.java)；必要直接测试引用、[caller fixture](../../../minecraft-codev-mixins/src/test/resources/pipeline-caller.gradle) Transform 参数和 [Forge retained baseline](../../../minecraft-codev-forge/src/test/kotlin/net/msrandom/minecraftcodev/forge/mixin/ForgeRetainedBaselineTests.kt) 去 proof/hash/receipt 耦合。AppliedMixins/StrictJson/ArchiveResources/OperationPublication 与 producer engine 未改，平台生产 writers 不改。
+- **实际 focused 方法与计数（I02 执行，本次未跑）**：现 wrapper、offline/no-configuration-cache/no-daemon、非增量 Kotlin 与既有 JDK discovery；Mixins selectors 为 StripMixinsTests **8**、MixinSafeRetentionTests **4**、OperationPublicationTests **7**、MixinInputBindingTests 四 methods（taskInputsRejectRealWindowsParentAliasesAndHardlinksBeforeMutation、taskDirectoryInputsRejectDescendantsAndAllowAdjacentOutputs、taskDistinctSameBasenameContentMissingParentsAndRerunsAreLegal、testKitTransformTracksParametersAndInputArtifactIndependently）**4**、MixinMappingTests.realRefmapMemberInfoChainKeepsRawKeys **1**；FabricApplicabilityRepairTests/FabricMixinMetadataTests **5+2**，ForgeMixinMetadataTests/ForgeRetainedBaselineTests **4+2**。共 **24+7+6=37 不同 methods，failures/errors/skipped 均 0**。此前维护只读当时 [Mixins XML](../../../minecraft-codev-mixins/build/test-results/test/)、[Fabric XML](../../../minecraft-codev-fabric/build/test-results/test/)、[Forge XML](../../../minecraft-codev-forge/build/test-results/test/) 与 [required 成功日志](../../../minecraft-codev-mixins/build/mri-i02-required.log) 支持该历史状态；现在 Mixins XML 已被 I03 最终单方法失败覆盖，不再用于重建 I02 的 24 或完整 37，不与 R02 的 54/14 或失败重跑相加。
+- **四组 required evidence（完整采用 Result 的 processed facts）**：①独立手写中立集合及真实 producer 文件，同数组/三数组/跨 JAR 全部精确匹配；嵌套路径、不同原字符串/package/mapped 名不扩大键。②真 JAR 重开，未知嵌套字段/null/字段和剩余顺序、空 config、classes/refmaps/Loader metadata/资源/目录保留，有效空/无匹配及全部原输入保持。③真实缺文件/UTF-8/JSON/重复字段/错误形状/危险路径/坏 ZIP/重复 entry/CRC/非法适用 config 向外失败；实际写入/关闭/取消/move 发布与 alias/hardlink/目录保护，无当前半成品，重试/STORED 重开成立。④迁移后 focused seam 与 Fabric AW/nested、Forge AT/nested/metadata retained baseline 保留，旧 owned 路径/包退出；独立 Gradle 参数/inputArtifact/合法空/四非法负例 probe 实际通过，但不替代 I03。
+- **独立 build-only 真实文件消费（不计 unit count）**：[ExistingProducerStripCheck 源码](../../../minecraft-codev-mixins/build/tmp/mri-i02/ExistingProducerStripCheck.java) 使用保留 R02 原生 Task 的 [removals.json](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerDefaultsAreQueryableBeforeExecution/build/mixin/produce/removals.json) 与 [mod.jar](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerDefaultsAreQueryableBeforeExecution/mod.jar)，并以独立手写同格式 file 驱动同一个公开 StripFixture→StripMixins Transform。两输出内容相同且仅余 Unused，target 调用 **42**，inputs/resources 不变，[native-file 日志](../../../minecraft-codev-mixins/build/mri-i02-native-file.log) PASS；[native 输出](../../../minecraft-codev-mixins/build/tmp/mri-i02/native-check/native-stripped.jar)和[手写输出](../../../minecraft-codev-mixins/build/tmp/mri-i02/native-check/manual-stripped.jar)现可读。未重建 producer，不是 I03 同链/cache 证明。
+- **早期真实失败与限制**：[首轮日志](../../../minecraft-codev-mixins/build/mri-i02-first.log) 是 Gson 2.2.4 无 keySet 的 compileTestJava 失败、0 tests；改 entrySet 后 [null 失败日志](../../../minecraft-codev-mixins/build/mri-i02-null-failure.log) 记录未知 tail:null 丢失，serializeNulls 修正后 37 全 pass。[build-only 首轮日志](../../../minecraft-codev-mixins/build/mri-i02-native-file-first.log) 为相对路径按 fixture root 解析失败、无输入修改，absolute paths 修正后 PASS。主动 LSP **8 inconclusive（6 timeout/2 push-only silent）**、Groovy unsupported，不宣 clean；实际 compile/TestKit 通过。未 wholeRepo/fullplatform/Forge patch/configuration-cache/Git 交付；JDK17 SecurityManager 故障注入有弃用风险，旧 cleanupFile 有意不兼容。
+
+本次只读确认上述既存 repo files/XML/logs 可读，行为来自已完整采用 Result，不运行 classes/Transform/tests。普通 build/fixture/log/XML 可被后续覆盖，不承诺完整原件或永久取回；未持久化外部 Result/session locator、原报告或影子台账。历史 R02 的 54/14 仍有效，现 XML 覆盖不是重开其 predicate；旧 blocked/partial/未释放 gates 与 repair 取消不改。
+
+### MRI-I03 partial 事实与目标内 Mixin class 缺口
+
+Router 已从一次 full join 完整读取并可靠关联 `mixin-real-caller-cache-reimplementation` / generation **1** / **MRI-I03:g1**，完整采用业务 **partial**；本轮又普通读取确切 envelope 并解码完整 result 核对，外层 `status=completed` 仅表示调用终结。原 **MRI-W03 pending/未释放**，I03 predicate 未满足；原完整 scope/predicate/owner/五组 verification 与 prerequisites 保留在 [Waves 历史节点](waves.md#mri-i03--真实-caller-的完整消费与正常缓存闭包)，不重置为 pending，也不由新恢复自动满足旧项。
+
+- **仅已完成的 fixture 改动**：[MixinInputBindingTests](../../../minecraft-codev-mixins/src/test/java/net/msrandom/minecraftcodev/mixins/MixinInputBindingTests.java) 的 `pipelineProject()` 用已有 ASM 将目标 Both 改名到独立 `demo.targetmixin` package，排除与 source 重复来源/共享 package 干扰；目标内 `target.json` 和 Mixin class 仍保留。完整 caller method 的 `finally` 增加六份 raw 输入字节不变断言，失败退出亦实际观察 target/source A+B、resolution-only、external 未变。[pipeline-caller.gradle](../../../minecraft-codev-mixins/src/test/resources/pipeline-caller.gradle) 已有公开 `Mixin.appliedMixins → StripMixins.Parameters.removalsFile` 接线，I03 未改它，不是新 wiring 实现。无生产、平台、构建/依赖或 authority 修复。
+- **最终 producer 缺口**：`:produceA` 首次 producer 阶段向外抛 `IllegalClassLoadError: Illegal classload request for demo.targetmixin.Both. Mixin is defined in target.json and cannot be referenced directly`。原 Result 记录 [EngineOperation](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/runtime/EngineOperation.java) 对目标每个 `.class` 无区别调用 `transformer.transformClassBytes`，把已注册 Mixin 定义当普通目标类。目标包含普通 `demo/Target.class`、`demo/targetmixin/Both.class`、`target.json`、`fixture.list` 与资源；这是目标 archive dispatch/preservation 的现实现缺口，不是 Transform 参数或 provider 故障。现无 applied target、通知文件、applied-only 副本或 consumed/A 可供成功消费；失败前引擎内部效果未验证，不宣称回滚或全应用。
+- **实际执行方法/计数（I03 执行，本轮不跑）**：Codev 根现 wrapper，`:minecraft-codev-mixins:test`、JUnit/TestKit/pluginUnderTestMetadata，offline/no-configuration-cache/no-daemon、引用的非增量 Kotlin 参数及既有 JDK discovery；最终 launcher Microsoft JDK `17.0.19+10-LTS`、小类 `--release 11`。五个不同 selectors 均为 `net.msrandom.minecraftcodev.mixins.MixinInputBindingTests.` 前缀：
+  - `testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations`
+  - `testKitProducerCacheRestoreThenFreshAndRestoredTransforms`
+  - `testKitRequiredSourceAndTargetStripFailuresDoNotNegateAppliedOutput`
+  - `testKitFailedCurrentProducerCannotRouteOldSuccess`
+  - `testKitHandoffDamageRebuildsAndCurrentInputsReachConsumption`
+
+  [baseline 日志](../../../minecraft-codev-mixins/build/mri-i03-baseline.log) 记录 **5 tests / 5 failures**，均在各自首次 producer 阶段中止；独立 package 及 finally 修正后仅重跑第一个 selector，[final 日志](../../../minecraft-codev-mixins/build/mri-i03-final.log)与当时 XML（历史路径 `minecraft-codev-mixins/build/test-results/test/TEST-net.msrandom.minecraftcodev.mixins.MixinInputBindingTests.xml`，本次已不再可读）记录为 **1 test / 1 failure / 0 errors / 0 skipped**。合计尝试 **5 个不同 methods，0 通过**，重复运行不累计、编译成功不算测试成功。TestKit run 为 `--offline --no-configuration-cache --build-cache --info appliedA` 等，runner 的 stacktrace/plain/no-parallel/max-workers=1 保留；参数在 [真实 caller 留存 fixture](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations/) 的 run logs 中。
+- **早期失败与静态限制**：[first 日志](../../../minecraft-codev-mixins/build/mri-i03-first.log) 因未列入现有 JDK 11 的 discovery 失败，**0 tests**；补已有 discovery 路径后运行，无安装/构建配置改变。[first-caller 日志](../../../minecraft-codev-mixins/build/mri-i03-first-caller-failure.log) 为重复 Both 来源 shadow，[shared-package 日志](../../../minecraft-codev-mixins/build/mri-i03-shared-package-failure.log) 为中间共享包直接加载失败，均不能代替最终独立包结论或累计通过数。I03 的自动语言检查 unavailable/incomplete，不宣 LSP clean；其 `git diff --check` 返回 0 但该测试文件原未跟踪，不是完整 diff 认证，采用其两处人工核对限制。
+
+| 原 I03 required evidence 组 | 已观察与尚未实际执行的边界 |
+| --- | --- |
+| 1 注册/连接/完整集合 | 真实脚本已解析并调度公开 producer；未到 raw sources＋含 config 的 derived target 完整消费、两 operation 无串、resolution-only 排除的成功观察。未变化的 default smoke 仅复用 R02 已采用覆盖，不增通过数。 |
+| 2 产物与故障消费 | 本次 producer 异常向外、无成功输出、六份 raw 不变；没有当前 applied/cleaned 成果。source strip、derived-target strip、故意 producer/publication 故障和独立 applied 成果分支均未到达，不以提前 producer 失败替代。 |
+| 3 无内存正常缓存 | warm producer 即失败；SUCCESS→两输出 FROM-CACHE→fresh Transform→消费、Task UP-TO-DATE、各 Transform 恢复/复用和内容闭包均未建立。 |
+| 4 当前输入/损坏交接 | inputs-first 即失败；config/plugin body/resource/mapping/side/context/native property/unset/default/有序输入及实现输入的实际变化验证未执行，missing/corrupt/invalid/stale 交接恢复未到达。I02 参数/inputArtifact/有效空/非法 probe 仅按其独立范围复用；读到 `@Classpath implementationClasspath` 不等于实际变更跟踪证据。 |
+| 5 Spec/组件覆盖 | R02 names/native settings/isolation/通知/关闭发布/平台与 I02 精确 Strip/保留/非法输入/I/O 的历史证据按实测范围保留；均不能覆盖新 target-owned Mixin class 场景或宣称同链 completed delivery/reuse 已闭合。 |
+
+本轮只读确认上述既存 repo logs/XML/fixture 与源码引用可读，XML 中 raw-input 断言输出及最终 run log 的类/阶段/cause 可查；不执行 classes/Transform 或新领域诊断。普通日志/XML/fixture 可变，不是冻结的完整报告，不承诺永久检索原 Result；不保存外部 Result/session 定位器、raw report 或新证据包。
+
+### 同范围恢复边界（R03 前准备历史）
+
+三族 assessment 继续 **reuse**：PRD R3/R5/R6/R10、Spec supplied target/discovery、class/resource preservation、build-copy 与同链消费/cache 已要求该场景，ADR 的隔离加载域/锁定引擎不变。这是实现差距，不需要新增合同、原生 getter 适配、引擎升级或 classloader 架构选择。
+
+**MRI-R03 / MRI-WR03 pending** 仅承接普通目标转换与目标内 Mixin 定义/相关资源保留的局部 producer 修复，使用真实 native 小 JAR 验证普通类仍经引擎、Mixin/其他内容保留、准确通知与输入保护，并复验现失败真实 caller method；不顺带跑全部 cache 或全组件。**MRI-R04 / MRI-WR04 pending** 仅在新修复 gate 满足后，经原 T/F owner、已修正 fixture 和公开组件补原 I03 五组中所有尚未实际执行的要求；沿用仍适用的 R02/I02/R03 证据，不伪造 producer/strip、不覆写默认路径、不增终验/框架。runtime、tests、fixture 与普通 Gradle/运行/cache 副作用严格串行；具体 owner/predicate/前置/冲突只由 Waves 定义。
+
+### MRI-R03 completed 事实与独立 gate 判断
+
+以下保留 R03 执行及上一轮记录维护时点的事实；本节“本轮/当前 XML/R04 未执行”均指该历史时点。最新 R04 完成与 XML 覆写见下一节，不改写 R03 原计数或失败历史。
+
+Router 已从 full join 完整读取并可靠关联 `mixin-target-owned-class-dispatch-repair:g1` / **MRI-R03:g1 completed**。本轮又普通读取确切 JSON envelope、解码全部 result，核对 subagentId、generation=1 与 backend/业务 completed，仅维护已采用事实。Router 已在当前 bytes 下独立核 **MRI-WR03** 的唯一 `itemIds=[MRI-R03]`、R02/I02 completed 与 WR02/W02 satisfied 显式前置、R03 三组 evidence 和 WR03 release predicate，判 **satisfied**；不是本 writer 新评判或 backend success 推导。R04/WR04 仍 pending、未执行；前置具备不等于 caller/cache 闭包完成、整 Plan 完成或追加许可。旧 I01 blocked、R01/I03 partial、W01/WR01/W03 pending/未释放不变，R02/I02 原覆盖限制继续保留。
+
+- **局部修复边界**：仅 [EngineOperation.java](../../../minecraft-codev-mixins/src/main/java/net/msrandom/minecraftcodev/mixins/runtime/EngineOperation.java)、[MixinProducerTests.java](../../../minecraft-codev-mixins/src/test/java/net/msrandom/minecraftcodev/mixins/MixinProducerTests.java)、[MixinInputBindingTests.java](../../../minecraft-codev-mixins/src/test/java/net/msrandom/minecraftcodev/mixins/MixinInputBindingTests.java) 改变。archive 遍历此前把 Mixin 定义也交给普通 classload，触发原生 IllegalClassLoadError；现以锁定引擎 `MixinClassReader` 和 `Annotations.getInvisible(node, Mixin.class)` 读取实际 CLASS-retention 注解，定义精确原字节保留，其余类继续真实 `transformClassBytes`，异常正常向外。没有猜包名/目录、依赖通知判断定义、吞异常回退或移走目标定义；没有 engine/Task/Strip/platform/options/loader 架构、依赖/构建/工具链改变。三族 assessment 继续 reuse，原用户范围/C6 确认持续有效。
+- **native 小 JAR（required evidence 1）**：[native fixture](../../../minecraft-codev-mixins/build/fixture-evidence/targetOwnedDefinitionsArePreservedWithoutSkippingOrdinaryTargets/) 携带普通 `demo.Target`、`aaa.mixinSibling.MixinTarget`、自身 config、已注册 `aaa.mixin.nested.Local` 及未注册定义、refmap/helper/嵌套 helper/metadata/资源；定义排序先于普通目标。完成输出两个普通目标调用均为 **42**，raw demo.Target 为 **1**；相近 package/名称含 Mixin 的普通类未被跳过。重开 JAR entry 集合不变，除两个转换目标外逐 entry 原字节一致。关闭后 [cleanup.json](../../../minecraft-codev-mixins/build/fixture-evidence/targetOwnedDefinitionsArePreservedWithoutSkippingOrdinaryTargets/cleanup.json) 为 `{"configs/owned.mixins.json":["nested.Local"]}`。target/source/runtime raw 三 JAR finally 字节不变；输入、输出、通知实际移动再移回，退出后可释放。
+- **真实 caller（required evidence 2）**：原失败 `testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations` 在 R03 新独立 Result 中成功，不倒改 I03 五方法 0 通过。公开 producer → `StripMixins.Parameters.removalsFile`，无 fake 通知/默认路径覆写/移走定义。applied-only 的 produceA/appliedA SUCCESS、目标调用 **42**，config 仍 `["Both"]`，定义/config/list/resource 原样，尚无 cleaned 消费目录。随后 produceA UP-TO-DATE、produceB 与 consumeA/B SUCCESS：A 消费 A-stripped.jar＋mod-stripped.jar，B 消费 B-stripped.jar＋source-b-stripped.jar，目标均 **42**；A 目标 config 清为空数组、source 余 `["Unused"]`，定义/其他资源保留。A 通知 `{"fixture.json":["Good"],"target.json":["Both"]}`，B `{"fixture.json":["Both"]}`，无并集。六 raw 输入（target/source A+B、resolution-only、external）finally 字节不变。可读 [caller fixture](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations/)、[applied-only log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations/runs/applied-only.log)、[完整 A/B log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations/runs/complete-two-operations.log) 与当前 XML 保留实际运行输出；本轮不重新执行其类。
+- **直接相关安全回归（required evidence 3）**：非 Mixin reserved-package 类仍抛真实 IllegalClassLoadError；required injector/非法输入异常阻断旧成功，重试 fresh；写入/runtime-exit/发布/取消/实际 loader-close 故障无当前可消费输出。optional 原生失败正常返回时保留通知；非法 major/config/不可用 injector 失败与 cause 未被吞成成功。不是 caller failure/cache 全闭包。
+
+**实际方法与计数（R03 执行，本轮仅静态读取）**：工作目录 `minecraft-codev/`，现 wrapper `./gradlew.bat :minecraft-codev-mixins:test`，每 selector 用 `--tests`，附 `--offline --no-configuration-cache --no-daemon '-Pkotlin.incremental=false'`，沿既有 `-Dorg.gradle.java.installations.paths` discovery 说明指定已安装 JDK 列表，不安装或修改配置。launcher Microsoft JDK `17.0.19+10-LTS`，fixture `--release 11`。最终同一次 run 的八个 selectors 共同前缀 `net.msrandom.minecraftcodev.mixins.`：
+
+1. `MixinProducerTests.targetOwnedDefinitionsArePreservedWithoutSkippingOrdinaryTargets`
+2. `MixinProducerTests.nonMixinClassInReservedPackageStillFailsWithoutPublishing`
+3. `MixinProducerTests.directEngineExceptionAndInvalidInputDoNotPublishAndRetryIsFresh`
+4. `MixinProducerTests.writesRuntimeExitAndPublicationFailuresInvalidateCurrentOutputs`
+5. `MixinProducerTests.actualLoaderCloseFailureBlocksHandoffAndPublication`
+6. `MixinPreapplicationTests.optionalFailureKeepsEveryNotifiedKey`
+7. `MixinInputBindingTests.testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations`
+8. `MixinFailureStageTests.unsupportedMajorConfigAndUnavailableInjectorPublishNoConsumablePair`
+
+[final log](../../../minecraft-codev-mixins/build/mri-r03-final.log) 为 BUILD SUCCESSFUL；当前 [XML 目录](../../../minecraft-codev-mixins/build/test-results/test/) 四份为 Producer **5**、Preapplication **1**、InputBinding **1**、FailureStage **1**，合计 **8 tests / 0 failures / 0 errors / 0 skipped**，本轮只读解析一致。当前 InputBinding XML 还含 `CALLER RAW INPUTS unchanged: target/source A+B, resolution-only, external`。它们已覆盖 I03 当时最终 1 failure XML，后者仍是已采用失败历史，不将当前成功回填；不与中间次数、R02 54/14 或 I02 37 相加。
+
+**两次中间修正及限制**：[focused log](../../../minecraft-codev-mixins/build/mri-r03-focused.log) 首轮七项六通过，一项 native 输出检查 loader 只委派 platform、缺 CallbackInfoReturnable；仅测试检查 loader 改沿既有 test classloader 委派，[native 单项 log](../../../minecraft-codev-mixins/build/mri-r03-native.log) 后通过，生产隔离未改。[invalid-bytecode log](../../../minecraft-codev-mixins/build/mri-r03-invalid-bytecode.log) 随后发现 ASM ClassReader 替换原生版本错误文本、丢具体诊断；对照锁定二进制改为 MixinClassReader，未降低旧断言，最终八项均在该修正上重跑通过。R03 主动 LSP 覆盖三个文件并在最后两处修正后再 probe，无语言 errors，保留 stderr 日志处一条辅助 logging warning；不是本轮 LSP。R03 的 git diff --check 为 0，但三文件原未跟踪，不充当完整 delta 证明；采用原人工定点/尾随空白/冲突检查限制。
+
+本轮只读核对以上 repo 日志/XML/native 小 JAR/caller 载体存在且可读，不执行 Gradle、LSP 或新实验。普通 build/log/XML/fixture 可被后续覆盖，不是完整原 Result、不保证永久取回；不持久写外部 Result/session/SDK 路径或新证据包。**未执行 MRI-R04 的 FROM-CACHE 后无 producer 内存 fresh Transform、完整 Transform 复用/current-input/交接损坏/caller failure 闭包**，未全仓、全平台、mapping/隔离全组件或全 cache 复验；不证明全目标完整应用或任意下游兼容，原生 reserved-package 非法加载规则保留。SecurityManager 故障注入仍有 JDK 弃用警告。
+
+### MRI-R04 completed 事实与 Router supplied gate/Plan 判断
+
+Router 已从 full join 完整读取并可靠关联 `mixin-remaining-caller-cache-closure:g1` / **MRI-R04:g1 completed**；本次普通完整读取确切 JSON envelope、解码全部 result，再核 task/generation/业务 completed。Router 核最新 tuple、WR04 唯一 member R04、R02/I02/R03 completed 与 WR02/W02/WR03 satisfied、原五组 evidence 和 release predicate，**supplied MRI-WR04 satisfied**；四个活跃 gates 共同建立**当前选定 Plan 完成**。这是采用事实，不是 writer 重新判 gate、静态验收或新实施许可。I01 blocked、R01/I03 partial、W01/WR01/W03 pending/未释放与旧 pipeline/G1 不变。
+
+R04 仅修改 [MixinInputBindingTests.java](../../../minecraft-codev-mixins/src/test/java/net/msrandom/minecraftcodev/mixins/MixinInputBindingTests.java) 与 [pipeline-caller.gradle](../../../minecraft-codev-mixins/src/test/resources/pipeline-caller.gradle)，未改生产实现。8 个不同 methods 的最终适用版本分轮通过，6 次 Gradle 调用共 18 次 method 执行、4 次中间失败已修正；**不是一次 8/0**。共同 selector 前缀 `net.msrandom.minecraftcodev.mixins.MixinInputBindingTests.`：
+
+| selector | 方法名 |
+| --- | --- |
+| A | `testKitProducerDefaultsAreQueryableBeforeExecution` |
+| B | `testKitRegisteredCompleteFlowAppliedOnlyAndIndependentOperations` |
+| C | `testKitProducerCacheRestoreThenFreshAndRestoredTransforms` |
+| D | `testKitTransformTracksParametersAndInputArtifactIndependently` |
+| E | `testKitRequiredSourceAndTargetStripFailuresDoNotNegateAppliedOutput` |
+| F | `testKitFailedCurrentProducerCannotRouteOldSuccess` |
+| G | `testKitHandoffDamageRebuildsAndCurrentInputsReachConsumption` |
+| H | `testKitTaskOnlyPluginBodyAndResourceChangesReexecute` |
+
+R04 实际命令：在 `minecraft-codev/` 执行 `./gradlew.bat :minecraft-codev-mixins:test`，各完整 selector 分别用 `--tests`，附 `--offline --no-configuration-cache --no-daemon '-Pkotlin.incremental=false'` 与 `-Dorg.gradle.java.installations.paths` 指定当时已有 JDK discovery 列表（不持久复制机器路径）；沿现 JUnit/TestKit、pluginUnderTestMetadata、JDK17 launcher、release 11 小类。本轮只读核对，不重跑。
+
+| 可覆写的 Gradle 日志 | selectors / 当轮结果 |
+| --- | --- |
+| [baseline](../../../minecraft-codev-mixins/build/mri-r04-baseline.log) | C/E/F/G：4 次执行、2 failures |
+| [focused](../../../minecraft-codev-mixins/build/mri-r04-focused.log) | C/E/F/G：4 次执行、1 failure |
+| [inputs](../../../minecraft-codev-mixins/build/mri-r04-inputs.log) | A/B/D/G：4 次执行、全通过 |
+| [final](../../../minecraft-codev-mixins/build/mri-r04-final.log) | C/E/F 通过，G 中间失败，非整轮 green |
+| [inputs-final](../../../minecraft-codev-mixins/build/mri-r04-inputs-final.log) | G 修正后通过 |
+| [helper](../../../minecraft-codev-mixins/build/mri-r04-helper.log) | H 共享 helper 定点回归通过 |
+
+pipeline TestKit 有效 flags 为 `--offline --no-configuration-cache --build-cache --info --stacktrace --console=plain --no-parallel --max-workers=1`，后置关闭选项覆盖 runner 的 configuration-cache；default smoke 另用 `--no-build-cache --rerun-tasks`，Strip 故障用 fresh home、`--no-build-cache -PfailStrip=source|target`，发布故障用 `-PfailPublication --rerun-tasks --no-build-cache`。H 单独检查 configuration-cache reuse。当轮最新 XML（历史路径 `minecraft-codev-mixins/build/test-results/test/TEST-net.msrandom.minecraftcodev.mixins.MixinInputBindingTests.xml`，本次已不再可读；已采用结果及上述可读日志保留）**仅 H：1/0/0/0**，不代表累计 8，也不覆盖/相加 R02/I02/R03 原计数。
+
+| 原五组要求 | 已采用实测 / 适用组件复用 |
+| --- | --- |
+| 1 公开连接与完整集合 | A/B 经真实 Task、项目级 registerTransform、from/to/参数 provider/显式 producer dependency、configuration/artifactView 消费。两默认及仅改 outputFile 查询可用；applied-only 目标 42、保留未清理 config/定义。完整两 operation 各消费全部 sources＋derived target，值 42；A 通知 fixture.json→Good、target.json→Both，B fixture.json→Both，不 union。source 余 Unused，A target 数组空；resolution-only/external 非法配置未扫。 |
+| 2 失败消费与独立成果 | E 分别拒绝 source/target 的真实 ExactMixinStripper.rewrite 读取，SecurityException 向外、consumeA FAILED、无 CONSUMED-A，旧 caller copy 未变不是当前成功；独立 appliedA 仍值 42、config Both 未清理。F 实测 producer 输出重叠、OperationPublication.publish 实际 move 写拒绝（两个输出不存在）、当前 target 损坏 ZipException（discovery 阶段）；均无当前成功。 |
+| 3 无 producer 内存缓存 | C producer SUCCESS 暖缓存后只删除两个 tracked outputs；fresh home/daemon producer FROM-CACHE 恢复两输出，首次两个 Strip 各 Stored、无 Loaded，重开消费 JAR 值 42/精确清理。正常再运行 Task/consumeA UP-TO-DATE；另一 fresh home 两 Transform 各 Loaded，消费复制与实际恢复 JAR 比较并重开。缓存不是新引擎通知。 |
+| 4 当前输入与交接 | G body 42→45、resource→49、config、mapping 文件/内容、side SERVER→CLIENT、context one→two 均得到当前结果；有序解析反转 resource 后 49→53。native countInjections unset→false→true→unset 得 49/59/49，恢复 unset FROM-CACHE；非 raw override。实际 Task inputs 包含完整 implementationInputs，复制真实 implementationClasspath 依赖仅改 resource 后重新 SUCCESS。missing 交接 FROM-CACHE，corrupt JSON/invalid shape/stale-empty SUCCESS 重建；合法空 {} 全流成功、目标 1、config/定义保留。D 单独改 removals、inputArtifact 各得对应内容，坏 JSON/boolean/非字符串/缺失均失败。 |
+| 5 Spec 当前验收表 | 本轮补齐 registration/collection、completed delivery、reuse/current-input/failure 消费。Names 深语义 owner/overload/refmap/context、双向/null/unmapped/歧义与非法 tuple 仅在仍适用范围复用 R02；隔离/重试/并发/TCCL/释放及日志/部分通知复用 R02/R03；精确匹配、未知/null/顺序/metadata/资源和非法 ZIP/JSON、I/O/关闭/取消/发布复用 I02；目标定义保留/普通类转换复用 R03。未声称本轮重跑全组件或全平台。 |
+
+原输入每次在成功/失败 finally 受保护：六份 raw 加存在的 plugin/resource-first/mapping 输入，主动变更仅在构建之间。[普通 fixture 目录](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/) 保存各 selectors 的 runs logs、配置、小 JAR、通知及消费输出；其中 [C fresh-cache log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerCacheRestoreThenFreshAndRestoredTransforms/runs/producer-from-cache-fresh-transforms.log)、[C Transform restore log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitProducerCacheRestoreThenFreshAndRestoredTransforms/runs/restore-transforms.log) 与 [F 实际 publication log](../../../minecraft-codev-mixins/build/fixture-evidence/MixinInputBindingTests/testKitFailedCurrentProducerCannotRouteOldSuccess/runs/publication-actual-io-failure.log) 为可读例，不是新证据结构或完整原 Result。
+
+**中间失败与最后修正保持**：baseline 坏 UTF-8 source 在 producer discovery 提前拒绝，不能算 Strip fault，改用真实组件 I/O 读拒绝；坏 tracked output 时强制 FROM_CACHE 断言错误，Gradle 可禁用当次 cache 并 SUCCESS 重建，恢复/重新执行均合法且须核内容。context fixture 漏 target-owned config refmap，实际 Cannot select refmap context for target.json、伴随 Tooling API StreamCorruptedException；补有效 refmap 后通过，未移走定义/吞异常，见 [context failure](../../../minecraft-codev-mixins/build/mri-r04-context-fixture-failure.log)。final 的 native +100 超 BIPUSH，149 成 -107，改 +10 后 G 的 49/59/unset49 全链通过。不是生产修复。
+
+R04 最后主动 Java LSP 仅该测试文件 **1 file / 0 diagnostics**；Groovy 仅实际 Gradle 解析/执行，不称 Groovy LSP clean。本轮不运行 LSP。SecurityManager 故障注入依赖当前 **JDK17**，有弃用警告，fixture 已注明迁移条件；不外推到更高 JDK。logs/XML/JAR/fixture 可覆写、部分 TestKit sibling homes 按既有 Windows 句柄策略保留；不保证完整原件永久检索。没有全仓、游戏或全平台复验，没有全目标注入完整性或任意下游兼容保证。
+
+## 完成与风险边界
+
+R02/I02 completed 与 WR02/W02 satisfied 保留原实测组件覆盖；R03:g1 completed / WR03 satisfied 新增实测局部 dispatch/preservation 修复及指定真实 caller 成功，不泛化为全目标证明。R04:g1 completed 已补齐 fresh FROM-CACHE/Transform、caller failure/current-input/交接损坏等剩余闭包，Router supplied WR04 satisfied 与既有三个活跃 gates 共同建立当前选定 Plan 完成；实测和复用限制见上节。I03 partial 与原 W03 pending 不被新项代写为完成。若出现引擎改写、升级、隔离改变或支持收窄等实质变化，仍停止受影响部分并返回具体证据，不默改 scope、不增加 routine permission 门槛。静态记录检查不证明修复、生产验证或缓存完成。

@@ -1,0 +1,96 @@
+def pluginClassLoader = plugins.findPlugin('minecraft-codev-mixins').class.classLoader
+def StripMixins = pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixins.StripMixins')
+def Mixin = pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixins.task.Mixin')
+import org.gradle.api.artifacts.type.ArtifactTypeDefinition
+
+// Deny actual fixture I/O only inside the selected component, after normal input tracking.
+// shortcut: JDK 17 SecurityManager seam; replace if the fixture JVM stops supporting it.
+class FixtureIoFailure extends SecurityManager {
+    String stripInput
+    String publicationOutput
+    void checkPermission(java.security.Permission permission) {}
+    void checkRead(String path) {
+        if (path == stripInput && classContext.any { it.name == 'net.msrandom.minecraftcodev.mixins.ExactMixinStripper' })
+            throw new SecurityException('fixture strip read denied: ' + path)
+    }
+    void checkWrite(String path) {
+        if (path == publicationOutput && classContext.any { it.name == 'java.nio.file.Files' })
+            throw new SecurityException('fixture publication write denied: ' + path)
+    }
+}
+if (providers.gradleProperty('failStrip').isPresent() || providers.gradleProperty('failPublication').isPresent()) {
+    def previous = System.securityManager
+    def failure = new FixtureIoFailure()
+    if (providers.gradleProperty('failStrip').isPresent())
+        failure.stripInput = file(providers.gradleProperty('failStrip').get() == 'source' ? 'mod.jar' : 'build/applied/A.jar').absolutePath
+    if (providers.gradleProperty('failPublication').isPresent())
+        failure.publicationOutput = file('build/applied/A.jar').absolutePath
+    System.setSecurityManager(failure)
+    gradle.buildFinished { System.setSecurityManager(previous) }
+}
+
+def operation = { String id, String target, List sources ->
+    def producer = tasks.register("produce${id}", Mixin) {
+        inputFile = layout.projectDirectory.file(target)
+        mixinFiles.from(sources)
+        classpath.from('resolution-only.jar')
+        side = providers.gradleProperty('side').getOrElse('SERVER')
+        outputFile = layout.buildDirectory.file("applied/${id}.jar")
+        if (id == 'A' && providers.gradleProperty('overlapOutputs').isPresent()) appliedMixins = outputFile
+    }
+    def raw = configurations.create("members${id}") { canBeConsumed = false; canBeResolved = true }
+    dependencies.add(raw.name, files(sources))
+    dependencies.add(raw.name, files(producer.flatMap { it.outputFile }))
+    dependencies.registerTransform(StripMixins) {
+        from.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'jar')
+        to.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'stripped-' + id)
+        parameters.removalsFile.set(producer.flatMap { it.appliedMixins })
+    }
+    def cleaned = raw.incoming.artifactView {
+        attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'stripped-' + id)
+    }.files
+    tasks.register("consume${id}") {
+        dependsOn(producer)
+        inputs.file(producer.flatMap { it.appliedMixins }).withPropertyName('cleanup')
+        inputs.files(cleaned).withPropertyName('cleanedJars')
+        outputs.dir(layout.buildDirectory.dir("consumed/${id}"))
+        doLast {
+            def destination = layout.buildDirectory.dir("consumed/${id}").get().asFile
+            destination.mkdirs()
+            project.copy { from(cleaned); into(destination) }
+            new File(destination, 'transform-paths.txt').text = cleaned.files.collect { it.absolutePath }.sort().join('\n')
+            logger.lifecycle("CONSUMED-${id}: ${cleaned.files*.name.sort()}")
+        }
+    }
+    tasks.register("applied${id}", Sync) {
+        from(producer.flatMap { it.outputFile })
+        into(layout.buildDirectory.dir("applied-only/${id}"))
+    }
+}
+operation('A', 'target.jar', ['mod.jar'])
+operation('B', 'target-b.jar', ['source-b.jar'])
+
+tasks.named('produceA') {
+    doFirst {
+        assert inputs.files.files.containsAll(implementationClasspath.files)
+        assert implementationClasspath.files == pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixins.MixinInputsKt').implementationInputs().collect { new File(it) }.toSet()
+        println('IMPLEMENTATION-INPUTS=' + implementationClasspath.files)
+    }
+}
+
+def probe = configurations.create('probe') { canBeConsumed = false; canBeResolved = true }
+dependencies.add(probe.name, files('probe.jar'))
+def probeCleanup = layout.projectDirectory.file('probe-cleanup.json')
+dependencies.registerTransform(StripMixins) {
+    from.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'jar')
+    to.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'probe-stripped')
+    parameters.removalsFile.set(probeCleanup)
+}
+def probeFiles = probe.incoming.artifactView {
+    attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'probe-stripped')
+}.files
+tasks.register('consumeProbe', Sync) {
+    inputs.file(probeCleanup).withPropertyName('cleanup')
+    from(probeFiles)
+    into(layout.buildDirectory.dir('probe'))
+}

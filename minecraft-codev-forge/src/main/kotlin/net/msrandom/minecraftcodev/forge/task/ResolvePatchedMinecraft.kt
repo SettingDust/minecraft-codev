@@ -24,7 +24,7 @@ import java.nio.file.StandardCopyOption
 import javax.inject.Inject
 import kotlin.io.path.*
 
-const val PATCH_OPERATION_VERSION = 7
+const val PATCH_OPERATION_VERSION = 10
 
 @CacheableTask
 abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersioned {
@@ -145,7 +145,13 @@ abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersion
             null
         }
 
-        val (patched, nonPatched) = runBinaryPatcher(
+        val context = McpActionContext(
+            javaExecutable,
+            execOperations,
+            logger,
+            { temporaryDir.resolve("$it.log").toPath() },
+        )
+        val patchResult = runBinaryPatcher(
             userdev,
             userdevFile,
             McpConfigFile(
@@ -157,53 +163,58 @@ abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersion
             minecraftVersion.get(),
             dependencyHandler,
             configurationContainer,
-            McpActionContext(
-                javaExecutable,
-                execOperations,
-                logger,
-                { temporaryDir.resolve("$it.log").toPath() },
-            ),
+            universal,
+            libraries,
+            context,
         )
+        val patched = patchResult.patched
 
         val isNeoforge = neoforge.get()
 
         zipFileSystem(patched).use { patchedZip ->
-            // Add missing non-patched files
-            zipFileSystem(nonPatched).use { inputZip ->
-                inputZip.getPath("/").walk {
-                    for (path in filter(Path::isRegularFile)) {
-                        val output = patchedZip.getPath(path.toString())
-
-                        if (output.notExists()) {
-                            output.parent?.createDirectories()
-                            path.copyTo(output, StandardCopyOption.COPY_ATTRIBUTES)
-                        }
-                    }
-                }
-            }
-
             if (!isNeoforge || !isUnobfuscatedVersion(minecraftVersion.get())) {
                 val filters = userdev.universalFilters.map(::Regex)
 
-                zipFileSystem(universal.singleFile.toPath()).use { universalZip ->
-                    val root = universalZip.getPath("/")
+                val rawClasses = patchResult.notchOverlay?.let {
+                    Files.createTempFile("universal-obf", ".jar").also(Path::deleteExisting)
+                }
+                val classZip = rawClasses?.let { zipFileSystem(it, create = true) }
+                try {
+                    zipFileSystem(universal.singleFile.toPath()).use { universalZip ->
+                        val root = universalZip.getPath("/")
 
-                    root.walk {
-                        for (path in filter(Path::isRegularFile)) {
-                            val name = root.relativize(path).toString()
+                        root.walk {
+                            for (path in filter(Path::isRegularFile)) {
+                                val name = root.relativize(path).toString()
 
-                            if (!filters.all { name matches it }) {
-                                continue
+                                if (!filters.all { name matches it }) {
+                                    continue
+                                }
+
+                                val target = if (classZip != null && name.endsWith(".class")) classZip else patchedZip
+                                val output = target.getPath(name)
+                                output.parent?.createDirectories()
+                                path.copyTo(
+                                    output,
+                                    StandardCopyOption.COPY_ATTRIBUTES,
+                                    StandardCopyOption.REPLACE_EXISTING,
+                                )
                             }
-
-                            val output = patchedZip.getPath(name)
-
-                            output.parent?.createDirectories()
-                            path.copyTo(
-                                output,
-                                StandardCopyOption.COPY_ATTRIBUTES,
-                                StandardCopyOption.REPLACE_EXISTING
-                            )
+                        }
+                    }
+                } finally {
+                    classZip?.close()
+                }
+                if (rawClasses != null) {
+                    val normalized = normalizeNotchOverlay(rawClasses, checkNotNull(patchResult.notchOverlay), libraries, context)
+                    zipFileSystem(normalized).use { overlayZip ->
+                        val root = overlayZip.getPath("/")
+                        root.walk {
+                            for (path in filter { it.isRegularFile() && it.name.endsWith(".class") }) {
+                                val output = patchedZip.getPath(root.relativize(path).toString())
+                                output.parent?.createDirectories()
+                                path.copyTo(output, StandardCopyOption.COPY_ATTRIBUTES, StandardCopyOption.REPLACE_EXISTING)
+                            }
                         }
                     }
                 }
@@ -301,7 +312,7 @@ abstract class ResolvePatchedMinecraft : CachedMinecraftTask(), MinecraftVersion
         cacheExpensiveOperation(
             cacheDirectory,
             operationName,
-            patches.map { it.toPath() },
+            (patches + universal + libraries).map { it.toPath() },
             output.getAsPath(),
         ) { (output) ->
             resolve(cacheDirectory, output)

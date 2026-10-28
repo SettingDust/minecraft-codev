@@ -4,13 +4,13 @@ import java.nio.file.Path
 
 interface ListedFileHandler {
     /**
-     * List all the included jars
+     * List referenced resources
      * @param root New root that matches the format for the root this handler was loaded with
      */
     fun list(root: Path): List<String>
 
     /**
-     * Remove included Jar listing & the actual files
+     * Remove resource reference declarations; physical resource deletion depends on the handler
      * @param root New root that matches the format for the root this handler was loaded with
      */
     fun remove(root: Path)

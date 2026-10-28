@@ -1,0 +1,64 @@
+plugins { id 'java' }
+
+configurations { fixtureCompileClasspath }
+
+sourceSets {
+    target {}
+    mixins {}
+    producer {}
+    embedded {}
+    access {}
+}
+
+sourceSets.mixins.compileClasspath += sourceSets.target.output + configurations.fixtureCompileClasspath
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+    options.encoding = 'UTF-8'
+    options.compilerArgs.add('-proc:none')
+}
+
+dependencies {
+    fixtureCompileClasspath files(project.property('fixtureClasspath').split(java.io.File.pathSeparator))
+}
+
+tasks.register('targetJar', Jar) {
+    dependsOn tasks.named('targetClasses')
+    archiveFileName = 'target.jar'
+    from sourceSets.target.output
+}
+
+tasks.register('embedded', Jar) {
+    archiveFileName = 'embedded.jar'
+    from sourceSets.embedded.output
+    manifest { attributes('Automatic-Module-Name': 'fixture.embedded') }
+}
+
+tasks.register('producer-source', Jar) {
+    dependsOn tasks.named('mixinsClasses'), tasks.named('processProducerResources')
+    archiveFileName = 'producer-source.jar'
+    from sourceSets.mixins.output
+    from sourceSets.producer.output
+    manifest {
+        attributes(
+            'MixinConfigs': 'retained-second.json, consumed.json, retained-first.json',
+            'Automatic-Module-Name': 'demo',
+            'Implementation-Vendor': 'fixture'
+        )
+    }
+}
+
+tasks.register('access-input', Jar) {
+    dependsOn tasks.named('targetClasses'), tasks.named('processAccessResources'), tasks.named('embedded'), tasks.named('jar')
+    archiveFileName = 'access-input.jar'
+    from sourceSets.target.output
+    from sourceSets.access.output
+    from(tasks.named('embedded')) { into 'META-INF/jarjar'; rename { 'embedded.jar' } }
+    from(tasks.named('embedded')) { rename { 'unlisted.jar' } }
+    manifest { attributes('Automatic-Module-Name': 'fixture.access') }
+}
+
+// Keep static inputs observable by the handler tests rather than generating classes or JARs in JUnit.
+tasks.named('assemble') {
+    dependsOn tasks.named('targetJar'), tasks.named('producer-source'), tasks.named('access-input')
+}

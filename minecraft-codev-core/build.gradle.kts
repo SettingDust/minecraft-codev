@@ -26,10 +26,6 @@ dependencies {
     implementation(group = "commons-io", name = "commons-io", version = "2.11.0")
 }
 
-tasks.test {
-    dependsOn(tasks.pluginUnderTestMetadata)
-}
-
 publishing {
     publications {
         create<MavenPublication>("pluginMaven") {

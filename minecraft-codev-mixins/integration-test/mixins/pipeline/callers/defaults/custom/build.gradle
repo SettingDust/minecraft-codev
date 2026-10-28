@@ -1,0 +1,18 @@
+plugins { id 'minecraft-codev-mixins' }
+
+import net.msrandom.minecraftcodev.mixins.task.Mixin
+
+def producer = tasks.register('produce', Mixin) {
+    inputFile = layout.projectDirectory.file('target.jar')
+    mixinFiles.from('mod.jar')
+    side = 'SERVER'
+    outputFile = layout.buildDirectory.file('custom/applied.jar')
+}
+
+println('BEFORE-TARGET=' + producer.get().outputFile.get().asFile)
+println('BEFORE-NOTIFICATIONS=' + producer.get().appliedMixins.get().asFile)
+
+tasks.register('appliedOnly', Sync) {
+    from(producer.flatMap { it.outputFile })
+    into(layout.buildDirectory.dir('smoke-consumed'))
+}

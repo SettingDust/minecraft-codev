@@ -1,0 +1,2 @@
+plugins { id 'minecraft-codev-mixins' }
+apply from: 'pipeline-caller.gradle'

@@ -1,0 +1,17 @@
+modLoader="javafml"
+[vendor]
+keep=true
+label="dual"
+
+[[mixins]]
+config="retained-first.json"
+environment="client"
+vendor=7
+
+[[mixins]]
+config="consumed.json"
+
+[[mixins]]
+config="retained-second.json"
+environment="client"
+vendor=9

@@ -1,51 +1,89 @@
 package net.msrandom.minecraftcodev.mixins
 
-import net.msrandom.minecraftcodev.core.utils.toPath
-import net.msrandom.minecraftcodev.core.utils.zipFileSystem
-import org.gradle.api.artifacts.transform.*
+import org.gradle.api.artifacts.transform.CacheableTransform
+import org.gradle.api.artifacts.transform.InputArtifact
+import org.gradle.api.artifacts.transform.TransformAction
+import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.artifacts.transform.TransformParameters
 import org.gradle.api.file.FileSystemLocation
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
-import java.nio.file.StandardCopyOption
-import kotlin.io.path.copyTo
-import kotlin.io.path.deleteExisting
-import kotlin.io.path.extension
-import kotlin.io.path.nameWithoutExtension
 
+import java.io.OutputStream
+import java.nio.file.*
+import kotlin.io.path.outputStream
+
+/** Caller-registered, source-independent exact configuration cleanup for one JAR. */
 @CacheableTransform
-abstract class StripMixins : TransformAction<TransformParameters.None> {
+abstract class StripMixins : TransformAction<StripMixins.Parameters> {
+    interface Parameters : TransformParameters {
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.NONE)
+        val removalsFile: RegularFileProperty
+    }
+
+    @get:InputArtifact
+    @get:PathSensitive(PathSensitivity.NONE)
     abstract val inputFile: Provider<FileSystemLocation>
-        @InputArtifact
-        @PathSensitive(PathSensitivity.NONE)
-        get
 
     override fun transform(outputs: TransformOutputs) {
-        val input = inputFile.get().toPath()
-
-        val handler =
-            zipFileSystem(input).use {
-                val root = it.getPath("/")
-
-                mixinListingRules.firstNotNullOfOrNull { rule ->
-                    rule.load(root)
-                }
+        val input = inputFile.get().asFile.toPath()
+        val removals = parameters.removalsFile.get().asFile.toPath()
+        val output = outputs.file("${input.fileName.toString().substringBeforeLast('.')}-mixinStripped.jar").toPath()
+        val inputs = listOf(input.toRealPath(), removals.toRealPath())
+        val destination = mixinDestination(output.toAbsolutePath().normalize())
+        require(!Files.isSymbolicLink(output)) { "Symbolic Strip output: $output" }
+        for (protected in inputs) {
+            require(destination != protected && !(Files.isDirectory(protected) && destination.startsWith(protected)) &&
+                !(Files.exists(destination) && Files.isSameFile(destination, protected))) {
+                "Output overlaps an input: $output -> $protected"
             }
-
-        if (handler == null) {
-            outputs.file(inputFile)
-
-            return
         }
-
-        val output = outputs.file("${input.nameWithoutExtension}-no-mixins.${input.extension}").toPath()
-
-        input.copyTo(output, StandardCopyOption.COPY_ATTRIBUTES)
-
-        zipFileSystem(output).use {
-            val root = it.getPath("/")
-            handler.list(root).forEach { path -> root.resolve(path).deleteExisting() }
-            handler.remove(root)
+        require(!Files.isDirectory(destination)) { "Strip output is a directory: $output" }
+        synchronized(activeOutputs) {
+            require(activeOutputs.none { it == destination ||
+                (Files.exists(it) && Files.exists(destination) && Files.isSameFile(it, destination)) }) {
+                "Strip output is in use: $output"
+            }
+            activeOutputs.add(destination)
         }
+        var staged: Path? = null
+        var failure: Throwable? = null
+        var invalidated = false
+        try {
+            Files.createDirectories(destination.parent)
+            Files.deleteIfExists(destination)
+            invalidated = true
+            staged = Files.createTempFile(destination.parent, ".codev-strip-", ".jar")
+            openOutput(staged).use { ExactMixinStripper.rewrite(input, removals, it) }
+            Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        } catch (error: Throwable) {
+            failure = error
+            throw error
+        } finally {
+            var cleanupFailure: Throwable? = null
+            try {
+                if (staged != null) Files.deleteIfExists(staged)
+            } catch (cleanup: Throwable) { cleanupFailure = cleanup }
+            try {
+                if (invalidated && (failure != null || cleanupFailure != null)) Files.deleteIfExists(destination)
+            } catch (cleanup: Throwable) {
+                if (cleanupFailure == null) cleanupFailure = cleanup else cleanupFailure.addSuppressed(cleanup)
+            } finally {
+                synchronized(activeOutputs) { activeOutputs.remove(destination) }
+            }
+            if (cleanupFailure != null) {
+                if (failure != null) failure.addSuppressed(cleanupFailure) else throw cleanupFailure
+            }
+        }
+    }
+
+    protected open fun openOutput(staged: Path): OutputStream = staged.outputStream()
+
+    companion object {
+        private val activeOutputs = mutableSetOf<Path>()
     }
 }

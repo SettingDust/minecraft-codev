@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mixin 待审设计 · 三图浏览</title>
+<style>
+:root{color-scheme:light;--ink:#172c43;--line:#476888;--blue:#eef5ff;--green:#eaf8ef;--amber:#fff5df}*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:var(--ink);font:16px/1.65 system-ui,"Microsoft YaHei",sans-serif}header,main,footer{max-width:1500px;margin:auto;padding:24px}h1{margin:0;font-size:30px}h2{margin:0 0 8px;font-size:24px}p{margin:8px 0}.notice{border-left:5px solid #b66a00;background:var(--amber);padding:14px 20px;margin:18px 0}nav{display:flex;gap:20px;flex-wrap:wrap}a{color:#175b9c}section{background:white;border:1px solid #ccd7e3;border-radius:12px;margin:0 0 28px;padding:20px}.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}button{font:inherit;color:var(--ink);background:#fff;border:1px solid #859bb0;border-radius:6px;padding:7px 16px;cursor:pointer}button:hover{background:#eaf2fb}button:focus-visible,a:focus-visible,.viewport:focus-visible{outline:3px solid #1269c5;outline-offset:3px}.viewport{overflow:auto;border:1px solid #d5dfe9;background:#fcfdff;border-radius:8px;max-height:85vh}.viewport svg{display:block;max-width:none}svg{font-family:system-ui,"Microsoft YaHei",sans-serif;font-size:18px}svg .box{fill:var(--blue);stroke:#567c9e;stroke-width:1.5}svg .output{fill:var(--green);stroke:#407a59;stroke-width:1.5}svg .alt{fill:var(--amber);stroke:#9e792f;stroke-width:1.5}svg .group{fill:#f6f8fb;stroke:#8b9daf;stroke-dasharray:7 5;stroke-width:1.5}svg text{fill:var(--ink)}svg .title{font-weight:700;font-size:21px}svg .small{font-size:16px}svg .edge{fill:none;stroke:var(--line);stroke-width:2;marker-end:url(#arrow)}svg .optional{stroke-dasharray:7 5}svg .realize{fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:7 5;marker-end:url(#triangle)}.legend{color:#405970;font-size:15px}.notes{padding-left:22px}code{font-family:ui-monospace,Consolas,monospace;font-size:.94em}.status{min-width:52px;font-variant-numeric:tabular-nums}footer{padding-top:0;color:#405970}@media(max-width:650px){header,main,footer{padding:16px}section{padding:14px}h1{font-size:26px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Mixin 待审设计 · 三图浏览</h1>
+<div class="notice"><strong>待审建议，不是当前实现，也不是已接受架构。</strong><br>代码已迁移到 Kotlin；这里的类型与流程仅为设计草图，不构成当前 API 或已接受 ABI。此页只展示既定设计，不重新选型。</div>
+<nav aria-label="图表导航"><a href="#flow">01 执行与产物流向</a><a href="#types">02 Loader 配置关系</a><a href="#lifecycle">03 生产者生命周期</a></nav>
+<p>每张图可独立放大、缩小或恢复 100%；宽图支持横向与纵向滚动。页面无需网络、服务或插件，可直接通过 file:// 打开。</p>
+</header>
+<main>
+<section id="flow">
+<h2>01 · 整体执行与产物流向</h2>
+<p class="legend">实线箭头：调用或数据流；虚线箭头：可替代的清单来源（并非同时必需）。所有产物接线由使用方显式完成，不表示 Codev 自动注册或消费。</p>
+<div class="toolbar" role="group" aria-label="执行流向图查看控件"><button data-zoom="out" aria-label="缩小执行流向图">− 缩小</button><button data-zoom="in" aria-label="放大执行流向图">＋ 放大</button><button data-zoom="reset">恢复 100%</button><output class="status" aria-live="polite">100%</output></div>
+<div class="viewport" tabindex="0" aria-label="执行流向图，可滚动">
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1510" viewBox="0 0 1420 1510" role="img" aria-labelledby="flow-title flow-desc">
+<title id="flow-title">Mixin Task、隔离处理与逐 JAR 清理的数据流</title><desc id="flow-desc">三个输入与宿主配置发现交给 Task。每次独立 loader 调用 child Kotlin 函数，处理整个目标并通过 Recorder 返回 JDK 集合。归档和 loader 关闭后交付目标与应用条目。目标可直接消费；目标和原始来源也可逐 JAR 清理，清单可以来自 appliedMixins 或替代来源。</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="#476888"/></marker></defs>
+<rect class="box" x="30" y="25" width="290" height="70" rx="8"/><text x="175" y="68" text-anchor="middle">原始目标 JAR</text>
+<rect class="box" x="390" y="25" width="290" height="70" rx="8"/><text x="535" y="68" text-anchor="middle">原始 Mixin 来源 JAR</text>
+<rect class="box" x="750" y="25" width="260" height="70" rx="8"/><text x="880" y="68" text-anchor="middle">解析 classpath</text>
+<path class="edge" d="M175 95 V130 H510 V185"/><path class="edge" d="M535 95 V160 H600 V185"/><path class="edge" d="M880 95 V130 H690 V185"/>
+<rect class="box" x="390" y="185" width="420" height="100" rx="8"/><text class="title" x="600" y="223" text-anchor="middle">宿主 Mixin Task</text><text x="600" y="258" text-anchor="middle">输入输出 / 参数 / 缓存</text>
+<rect class="box" x="1040" y="180" width="350" height="110" rx="8"/><text class="title" x="1215" y="217" text-anchor="middle">宿主配置发现</text><text x="1215" y="248" text-anchor="middle">Fabric / Forge</text><text class="small" x="1215" y="275" text-anchor="middle">配置引用：资源路径 / side</text><path class="edge" d="M1040 235 H810"/>
+<rect class="group" x="340" y="340" width="1030" height="490" rx="12"/><text class="title" x="365" y="378">每次 Task 独立的 IsolatingMixinClassLoader</text>
+<path class="edge" d="M600 285 V410"/><text class="small" x="615" y="320">创建 loader，调用 child</text>
+<rect class="box" x="390" y="410" width="420" height="120" rx="8"/><text class="title" x="600" y="445" text-anchor="middle">child Kotlin 隔离处理函数</text><text x="600" y="478" text-anchor="middle">解析配置 / mapping · 初始化引擎</text><text x="600" y="509" text-anchor="middle">处理整个目标 JAR</text>
+<rect class="box" x="900" y="410" width="440" height="120" rx="8"/><text class="title" x="1120" y="446" text-anchor="middle">GradleMixinRecorderExtension</text><text x="1120" y="480" text-anchor="middle">直接取得 config 和对应 Mixin</text><text class="small" x="1120" y="510" text-anchor="middle">不是仅类名，也不是待决归属问题</text><path class="edge" d="M810 470 H900"/><text class="small" x="834" y="452">通知</text>
+<rect class="box" x="900" y="615" width="440" height="90" rx="8"/><text x="1120" y="650" text-anchor="middle">收集 JDK Map / Set</text><text x="1120" y="681" text-anchor="middle">返回宿主（跨隔离边界）</text><path class="edge" d="M1120 530 V615"/>
+<rect class="box" x="390" y="615" width="420" height="90" rx="8"/><text x="600" y="650" text-anchor="middle">child 写暂存目标</text><text x="600" y="681" text-anchor="middle">关闭归档</text><path class="edge" d="M600 530 V615"/>
+<path class="edge" d="M600 705 V865"/><path class="edge" d="M1120 705 V785 H760 V865"/>
+<rect class="box" x="390" y="865" width="540" height="80" rx="8"/><text x="660" y="899" text-anchor="middle">宿主关闭 loader 后完成两个具名输出</text><text class="small" x="660" y="926" text-anchor="middle">写完条目文件；不把未完成输出视为成功</text>
+<rect class="output" x="350" y="1010" width="350" height="95" rx="8"/><text class="title" x="525" y="1047" text-anchor="middle">outputFile</text><text x="525" y="1080" text-anchor="middle">应用后的目标 JAR</text>
+<rect class="output" x="800" y="1010" width="560" height="95" rx="8"/><text class="title" x="1080" y="1047" text-anchor="middle">appliedMixins</text><text x="1080" y="1080" text-anchor="middle">配置完整资源路径 → 原始条目集合</text><path class="edge" d="M525 945 V1010"/><path class="edge" d="M850 945 V975 H1080 V1010"/>
+<rect class="output" x="30" y="1010" width="265" height="95" rx="8"/><text x="162" y="1050" text-anchor="middle">applied-only 使用方</text><text class="small" x="162" y="1080" text-anchor="middle">直接消费 outputFile</text><path class="edge" d="M350 1058 H295"/>
+<rect class="alt" x="900" y="1170" width="460" height="75" rx="8"/><text x="1130" y="1202" text-anchor="middle">其它任务 / 手写清单</text><text class="small" x="1130" y="1229" text-anchor="middle">可独立提供 removalsFile</text>
+<rect class="box" x="350" y="1280" width="460" height="100" rx="8"/><text class="title" x="580" y="1317" text-anchor="middle">逐 JAR StripMixins</text><text x="580" y="1351" text-anchor="middle">无引擎 / Loader metadata 依赖</text>
+<path class="edge" d="M525 1105 V1280"/><text class="small" x="540" y="1150">衍生目标</text>
+<path class="edge" d="M390 60 H345 V1190 H420 V1280"/><text class="small" x="48" y="1218">原始 Mixin 来源也可清理</text>
+<path class="edge" d="M1080 1105 V1140 H740 V1280"/><text class="small" x="760" y="1167">removalsFile</text>
+<path class="edge optional" d="M900 1207 H850 V1330 H810"/>
+<rect class="output" x="900" y="1300" width="460" height="75" rx="8"/><text x="1130" y="1332" text-anchor="middle">各个清理后的 JAR</text><text x="1130" y="1360" text-anchor="middle">→ 完整清理消费者</text><path class="edge" d="M810 1360 H900"/>
+<text x="350" y="1440">解析 classpath 不自动清理。清理对象与产物消费均由使用方显式接线。</text>
+</svg></div>
+</section>
+<section id="types">
+<h2>02 · Loader 配置对象关系</h2>
+<p class="legend">UML 风格：虚线空心三角 = 实现接口；实线箭头 = 创建或持有。类型只是待审草图，不宣称当前 API / 已接受 ABI。</p>
+<div class="toolbar" role="group" aria-label="配置关系图查看控件"><button data-zoom="out" aria-label="缩小配置关系图">− 缩小</button><button data-zoom="in" aria-label="放大配置关系图">＋ 放大</button><button data-zoom="reset">恢复 100%</button><output class="status" aria-live="polite">100%</output></div>
+<div class="viewport" tabindex="0" aria-label="配置关系图，可滚动">
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="920" viewBox="0 0 1500 920" role="img" aria-labelledby="types-title types-desc">
+<title id="types-title">Mixin 配置发现规则、编辑 handler 与引用值</title><desc id="types-desc">Fabric 和 Forge 规则实现 MixinListingRule，分别创建自己的 handler。两 handler 实现 MixinConfigHandler，并持有 MixinConfigReference 快照。handler 保留 metadata 编辑能力，但 Strip 不调用它。</desc>
+<defs><marker id="triangle" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="12" markerHeight="12" orient="auto"><path d="M1 1 L11 6 L1 11 Z" fill="white" stroke="#476888"/></marker></defs>
+<rect class="box" x="30" y="35" width="610" height="125" rx="8"/><text class="small" x="335" y="65" text-anchor="middle">«interface» 专用规则</text><text class="title" x="335" y="97" text-anchor="middle">MixinListingRule</text><text x="55" y="139">load(root: Path): MixinConfigHandler?</text>
+<rect class="box" x="780" y="35" width="680" height="220" rx="8"/><text class="small" x="1120" y="65" text-anchor="middle">«interface»</text><text class="title" x="1120" y="97" text-anchor="middle">MixinConfigHandler</text><path d="M780 112 H1460" stroke="#567c9e"/><text x="805" y="148">references: List&lt;MixinConfigReference&gt;</text><text x="805" y="187">remove(root: Path)</text><text x="805" y="226">removeConfigs(root: Path, resources: Set&lt;String&gt;)</text>
+<rect class="box" x="30" y="340" width="480" height="90" rx="8"/><text class="title" x="270" y="391" text-anchor="middle">FabricMixinListingRule</text><path class="realize" d="M270 340 V160"/>
+<rect class="box" x="30" y="550" width="480" height="90" rx="8"/><text class="title" x="270" y="601" text-anchor="middle">ForgeMixinListingRule</text><path class="realize" d="M30 595 H15 V200 H110 V160"/>
+<rect class="box" x="780" y="340" width="680" height="110" rx="8"/><text class="title" x="1120" y="379" text-anchor="middle">FabricMixinConfigHandler</text><text x="1120" y="419" text-anchor="middle">JSON 引用快照与编辑</text><path class="realize" d="M1050 340 V255"/>
+<rect class="box" x="780" y="550" width="680" height="110" rx="8"/><text class="title" x="1120" y="589" text-anchor="middle">ForgeMixinConfigHandler</text><text x="1120" y="629" text-anchor="middle">Manifest / TOML 引用快照与编辑</text><path class="realize" d="M1460 605 H1480 V280 H1390 V255"/>
+<path class="edge" d="M510 385 H780"/><text x="625" y="370" text-anchor="middle">创建</text><path class="edge" d="M510 595 H780"/><text x="625" y="580" text-anchor="middle">创建</text>
+<rect class="output" x="780" y="760" width="680" height="120" rx="8"/><text class="title" x="1120" y="795" text-anchor="middle">«data value» MixinConfigReference</text><text x="815" y="831">resource: String</text><text x="815" y="862">side: ConfigSide</text><path class="edge" d="M850 450 V500 H720 V820 H780"/><path class="edge" d="M1120 660 V760"/><text x="1138" y="716">持有 references 快照</text><text class="small" x="520" y="742">持有快照</text>
+<text x="35" y="800">不继承 ListedFileHandler / Jar-in-Jar。</text><text x="35" y="837">无独立 environments 接口。</text><text x="35" y="874">handler 保留编辑能力；新 Strip 不调用它。</text>
+</svg></div>
+</section>
+<section id="lifecycle">
+<h2>03 · 两个独立生产者的生命周期</h2>
+<p class="legend">两列分别独立执行；并排不表示共享事务、同步阶段或自动调度。箭头仅表示各自内部顺序。</p>
+<div class="toolbar" role="group" aria-label="生命周期图查看控件"><button data-zoom="out" aria-label="缩小生命周期图">− 缩小</button><button data-zoom="in" aria-label="放大生命周期图">＋ 放大</button><button data-zoom="reset">恢复 100%</button><output class="status" aria-live="polite">100%</output></div>
+<div class="viewport" tabindex="0" aria-label="生命周期图，可滚动">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="980" viewBox="0 0 1280 980" role="img" aria-labelledby="life-title life-desc">
+<title id="life-title">Mixin Task 与 StripMixins 各自的成功路径与失败契约</title><desc id="life-desc">Mixin Task 检查路径、创建 loader、暂存并收集通知、关闭资源、写完条目文件后交付两个输出。Strip 读取清单、只读原 JAR 并精确编辑配置、写 Transform 工作区、关闭成功后交付。任何异常及关闭失败均向外传播，未完成输出不是本次成功。</desc>
+<text class="title" x="325" y="45" text-anchor="middle">Mixin Task</text><text class="title" x="955" y="45" text-anchor="middle">StripMixins</text>
+<rect class="box" x="45" y="80" width="560" height="80" rx="8"/><text x="325" y="128" text-anchor="middle">1 · 检查输入和两个输出路径</text>
+<rect class="box" x="45" y="210" width="560" height="80" rx="8"/><text x="325" y="258" text-anchor="middle">2 · 创建隔离 loader</text><path class="edge" d="M325 160 V210"/>
+<rect class="box" x="45" y="340" width="560" height="80" rx="8"/><text x="325" y="388" text-anchor="middle">3 · 处理到暂存目标并收集通知</text><path class="edge" d="M325 290 V340"/>
+<rect class="box" x="45" y="470" width="560" height="80" rx="8"/><text x="325" y="518" text-anchor="middle">4 · 关闭归档和 loader</text><path class="edge" d="M325 420 V470"/>
+<rect class="box" x="45" y="600" width="560" height="80" rx="8"/><text x="325" y="648" text-anchor="middle">5 · 写完条目文件</text><path class="edge" d="M325 550 V600"/>
+<rect class="output" x="45" y="730" width="560" height="100" rx="8"/><text x="325" y="769" text-anchor="middle">6 · 完成两个具名输出</text><text x="325" y="803" text-anchor="middle">outputFile + appliedMixins</text><path class="edge" d="M325 680 V730"/>
+<rect class="box" x="675" y="80" width="560" height="80" rx="8"/><text x="955" y="128" text-anchor="middle">1 · 读取 removalsFile</text>
+<rect class="box" x="675" y="210" width="560" height="100" rx="8"/><text x="955" y="251" text-anchor="middle">2 · 只读原 JAR</text><text x="955" y="285" text-anchor="middle">精确编辑匹配配置（不改写原归档）</text><path class="edge" d="M955 160 V210"/>
+<rect class="box" x="675" y="360" width="560" height="80" rx="8"/><text x="955" y="408" text-anchor="middle">3 · 写入 Gradle Transform 工作区</text><path class="edge" d="M955 310 V360"/>
+<rect class="output" x="675" y="490" width="560" height="80" rx="8"/><text x="955" y="538" text-anchor="middle">4 · 关闭成功后交付</text><path class="edge" d="M955 440 V490"/>
+<rect class="alt" x="675" y="635" width="560" height="195" rx="8"/><text class="title" x="955" y="678" text-anchor="middle">两者各自遵守的失败契约</text><text x="955" y="724" text-anchor="middle">异常 / 关闭失败向外传播</text><text x="955" y="765" text-anchor="middle">未完成输出不作为本次成功</text><text class="small" x="955" y="804" text-anchor="middle">说明框不是共享发布机制或额外处理阶段</text>
+<text x="45" y="900">JSON 使用已有 Kotlin serialization。</text><text x="45" y="937">不需要 EngineOperation、StrictJson、自建引擎 SHA 白名单或通用 OperationPublication。</text>
+</svg></div>
+<p>不引入共享输出锁框架、通知归属账本或完整应用证明。此页不增加任何生产实现、依赖或规范。</p>
+</section>
+</main>
+<footer>阅读提示：默认保持清晰文字尺寸而不强行适配窄屏；可先缩小查看全貌，再放大并滚动阅读。此展示文件不修改工程行为。</footer>
+<script>
+'use strict';
+for (const section of document.querySelectorAll('main section')) {
+  const svg = section.querySelector('svg');
+  const width = Number(svg.getAttribute('width'));
+  const height = Number(svg.getAttribute('height'));
+  let scale = 1;
+  for (const button of section.querySelectorAll('[data-zoom]')) {
+    button.addEventListener('click', () => {
+      const action = button.dataset.zoom;
+      scale = action === 'reset' ? 1 : Math.max(0.4, Math.min(2.4, scale + (action === 'in' ? 0.2 : -0.2)));
+      svg.style.width = `${Math.round(width * scale)}px`;
+      svg.style.height = `${Math.round(height * scale)}px`;
+      section.querySelector('output').textContent = `${Math.round(scale * 100)}%`;
+    });
+  }
+}
+</script>
+</body>
+</html>

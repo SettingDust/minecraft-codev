@@ -1,0 +1,13 @@
+plugins { id 'base' }
+
+// Codev task/Strip wiring needs only resource archives, not engine fixtures.
+['target', 'source', 'resolution-only', 'independent-strip'].each { name ->
+    tasks.register(name, Jar) {
+        archiveFileName = name + '.jar'
+        destinationDirectory = layout.buildDirectory.dir('inputs')
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        from('src/' + name + '/resources')
+    }
+}
+tasks.named('assemble') { dependsOn tasks.withType(Jar) }

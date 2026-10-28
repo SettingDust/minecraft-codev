@@ -16,7 +16,3 @@ dependencies {
 
     implementation(projects.minecraftCodevCore)
 }
-
-tasks.test {
-    dependsOn(tasks.pluginUnderTestMetadata)
-}

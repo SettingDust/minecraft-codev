@@ -1,0 +1,38 @@
+plugins { id 'java' }
+
+// The host supplies the locked engine/ASM closure; this project resolves no dependencies.
+def fixtureClasspath = files(providers.gradleProperty('fixtureClasspath').get().split(File.pathSeparator))
+sourceSets {
+    resolution11 { }
+    resolution22 { }
+}
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+    options.encoding = 'UTF-8'
+    options.compilerArgs.add('-proc:none')
+}
+tasks.named('compileJava', JavaCompile) { classpath = fixtureClasspath }
+
+def ordinaryJar = { String name, Object classes, List<String> patterns ->
+    tasks.register(name, Jar) {
+        archiveFileName = name + '.jar'
+        destinationDirectory = layout.buildDirectory.dir('inputs')
+        preserveFileTimestamps = false
+        reproducibleFileOrder = true
+        from(classes) { patterns.each { include it } }
+    }
+}
+[11, 22].each { value ->
+    ordinaryJar("resolution-${value}", sourceSets["resolution${value}"].output.classesDirs, ['resolution/**']).configure {
+        from(sourceSets["resolution${value}"].output.resourcesDir)
+        dependsOn tasks.named("processResolution${value}Resources")
+        from(sourceSets["resolution${value}"].output.resourcesDir) {
+            include '**/value.txt'
+            eachFile { path = 'encoded space#问?/value.txt' }
+        }
+    }
+}
+ordinaryJar('target', sourceSets.main.output.classesDirs, ['demo/Target.class'])
+ordinaryJar('smoke-source', sourceSets.main.output.classesDirs, ['demo/mixin/Good.class']).configure {
+    from('variants/smoke-source')
+}

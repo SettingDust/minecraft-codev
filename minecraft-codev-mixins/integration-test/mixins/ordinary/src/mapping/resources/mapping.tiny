@@ -1,0 +1,10 @@
+tiny	2	0	src	named
+c	src/A	game/A
+	m	(I)I	run	tick
+	m	(Ljava/lang/String;)I	run	label
+	f	I	s	state
+	m	()I	unique	renamedUnique
+c	src/B	game/B
+	m	(I)I	run	step
+c	src/Null	game/Null
+	m	()I	nullName	

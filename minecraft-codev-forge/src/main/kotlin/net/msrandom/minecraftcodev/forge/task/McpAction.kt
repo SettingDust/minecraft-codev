@@ -20,6 +20,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.jar.Attributes
 import java.util.jar.JarFile
@@ -86,17 +87,13 @@ internal data class McpActionContext(
     val logFile: (name: String) -> Path,
 )
 
-internal data class PatchResult(
-    val patchedJar: Path,
-    val nonPatchedJar: Path,
-)
-
 private fun executeStep(
     name: String,
     library: PatchLibrary,
     args: List<String>,
     fixedPatches: FileCollection,
     context: McpActionContext,
+    runtimeClasspath: List<File>? = null,
 ) {
     val jarFile = dependencyFile(fixedPatches, library.version ?: library.classpath[0])
     val stdOut = context.logFile("$name-stdout")
@@ -120,7 +117,11 @@ private fun executeStep(
                                     .getValue(Attributes.Name.MAIN_CLASS)
                             }
 
-                    classpath(jarFile, fixedPatches)
+                    if (runtimeClasspath == null) {
+                        classpath(jarFile, fixedPatches)
+                    } else {
+                        classpath((listOf(jarFile) + runtimeClasspath).distinctBy(::contentHash))
+                    }
                     this.mainClass.set(mainClass)
 
                     args(args)
@@ -149,7 +150,8 @@ private fun patchStep(input: Step.LibraryStep, userdev: UserdevConfig, userdevFi
 
     return Step.LibraryStep(
         "patch",
-        userdev.binpatcher.args.map {
+        // Complete the patch input before downstream namespace transforms, preserving deletions and patched definitions.
+        (userdev.binpatcher.args + listOf("--unpatched", "--data")).map {
             if (it.startsWith("{")) {
                 when (it.substring(1, it.length - 1)) {
                     "patch" -> {
@@ -175,6 +177,46 @@ private fun patchStep(input: Step.LibraryStep, userdev: UserdevConfig, userdevFi
     )
 }
 
+internal data class PatchResult(val patched: Path, val notchOverlay: NotchOverlay?)
+
+internal data class NotchOverlay(
+    val game: Path,
+    val mappings: Path,
+    val rename: PatchLibrary,
+    val fixedPatches: FileCollection,
+)
+
+private fun contentHash(file: File): String = MessageDigest.getInstance("SHA-256")
+    .digest(file.readBytes()).joinToString("") { "%02x".format(it) }
+
+private fun contentOrder(files: Iterable<File>): List<File> = files.map { contentHash(it) to it }
+    .sortedBy { it.first }.distinctBy { it.first }.map { it.second }
+
+internal fun normalizeNotchOverlay(
+    input: Path,
+    overlay: NotchOverlay,
+    libraries: FileCollection,
+    context: McpActionContext,
+): Path {
+    val output = Files.createTempFile("universal-srg", ".jar")
+    val arguments = overlay.rename.args.map {
+        when (it) {
+            "{input}" -> input.absolutePathString()
+            "{output}" -> output.absolutePathString()
+            "{mappings}" -> overlay.mappings.absolutePathString()
+            else -> {
+                require(!it.startsWith("{")) { "Unknown overlay rename template $it" }
+                it
+            }
+        }
+    } + "--live"
+    executeStep(
+        "normalizeUniversal", overlay.rename, arguments, overlay.fixedPatches, context,
+        listOf(input.toFile(), overlay.game.toFile()) + contentOrder(libraries) + contentOrder(overlay.fixedPatches),
+    )
+    return output
+}
+
 internal fun runBinaryPatcher(
     userdev: UserdevConfig,
     userdevFile: File,
@@ -184,6 +226,8 @@ internal fun runBinaryPatcher(
     minecraftVersion: String,
     dependencyHandler: DependencyHandler,
     configurationContainer: ConfigurationContainer,
+    universal: FileCollection,
+    libraries: FileCollection,
     context: McpActionContext,
 ): PatchResult {
     val (mcpConfig, mcpConfigPath) = mcpConfigFile
@@ -193,6 +237,8 @@ internal fun runBinaryPatcher(
     val decompilerInputArg = decompileFunction.args[decompileFunction.args.size - 2]
     val executionSteps = hashMapOf<String, Step>()
     val argumentSteps = hashMapOf<String, Step>()
+    var notchGame: Step.LibraryStep? = null
+    var notchMappings: Path? = null
 
     zipFileSystem(mcpConfigPath).use { fileSystem ->
         for (step in mcpConfig.steps.joined) {
@@ -231,7 +277,9 @@ internal fun runBinaryPatcher(
                         if (step != null) {
                             if (step is Step.LibraryStep) {
                                 if (step.name == patchStepPlacement) {
-                                    StepArgument.StepOutput(patchStep(step, userdev, userdevFile))
+                                    val patched = patchStep(step, userdev, userdevFile)
+                                    if (userdev.notchObf && type == "rename") notchGame = patched
+                                    StepArgument.StepOutput(patched)
                                 } else {
                                     StepArgument.StepOutput(step)
                                 }
@@ -258,6 +306,9 @@ internal fun runBinaryPatcher(
                                     StandardCopyOption.COPY_ATTRIBUTES,
                                 )
 
+                                if (userdev.notchObf && type == "rename" && name == "mappings") {
+                                    notchMappings = dataOutput
+                                }
                                 StepArgument.Literal(dataOutput.absolutePathString())
                             } else {
                                 throw UnsupportedOperationException("Unknown argument template $name")
@@ -295,10 +346,10 @@ internal fun runBinaryPatcher(
     val decompilerStepInput = decompilerArgAlias?.substring(1, decompilerArgAlias.length - 1) ?: decompilerArgName
     val finalStep = argumentSteps.getValue(decompilerStepInput) as Step.LibraryStep
 
-    val (stepToExecute, nonPatchedStep) = if (patchStepPlacement == null) {
-        patchStep(finalStep, userdev, userdevFile) to finalStep
+    val stepToExecute = if (patchStepPlacement == null) {
+        patchStep(finalStep, userdev, userdevFile)
     } else {
-        finalStep to executionSteps.getValue(patchStepPlacement) as Step.LibraryStep
+        finalStep
     }
 
     runBlocking {
@@ -311,12 +362,22 @@ internal fun runBinaryPatcher(
                 }.awaitAll()
 
                 withContext(Dispatchers.IO) {
-                    executeStep(step.name, step.library, step.resolvedArguments.map {
+                    val notchRename = userdev.notchObf && step.name == "rename"
+                    val arguments = step.resolvedArguments.map {
                         when (it) {
                             is StepArgument.Literal -> it.value
                             is StepArgument.StepOutput -> it.step.output.absolutePathString()
                         }
-                    }, fixedPatches, context)
+                    }
+                    executeStep(
+                        step.name, step.library, arguments + if (notchRename) listOf("--live") else emptyList(),
+                        fixedPatches, context,
+                        if (notchRename) {
+                            // Keep the game payload separate from the raw Forge inheritance declarations.
+                            listOf(checkNotNull(notchGame).output.toFile(), universal.singleFile) +
+                                contentOrder(libraries) + contentOrder(fixedPatches)
+                        } else null,
+                    )
                 }
             }
         }
@@ -324,5 +385,15 @@ internal fun runBinaryPatcher(
         prepareAndExecute(stepToExecute).await()
     }
 
-    return PatchResult(stepToExecute.output, nonPatchedStep.output)
+    return PatchResult(
+        stepToExecute.output,
+        if (userdev.notchObf) {
+            NotchOverlay(
+                checkNotNull(notchGame).output,
+                checkNotNull(notchMappings),
+                mcpConfig.functions.getValue("rename"),
+                fixedPatches,
+            )
+        } else null,
+    )
 }
