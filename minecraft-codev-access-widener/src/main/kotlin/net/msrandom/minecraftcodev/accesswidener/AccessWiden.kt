@@ -36,7 +36,7 @@ import kotlin.io.path.inputStream
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.writeBytes
 
-const val ACCESS_WIDEN_OPERATION_VERSION = 1
+const val ACCESS_WIDEN_OPERATION_VERSION = 2
 
 @CacheableTask
 abstract class AccessWiden : DefaultTask() {

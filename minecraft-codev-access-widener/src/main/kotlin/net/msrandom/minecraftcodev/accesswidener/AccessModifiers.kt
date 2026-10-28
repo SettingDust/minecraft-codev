@@ -3,11 +3,12 @@ package net.msrandom.minecraftcodev.accesswidener
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Transient
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.buildClassSerialDescriptor
 import kotlinx.serialization.descriptors.element
-import kotlinx.serialization.descriptors.serialDescriptor
+import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.encoding.decodeStructure
@@ -45,7 +46,13 @@ data class AccessModifiers(
 
             for ((methodName, methodModels) in classModel.methods) {
                 for (methodModel in methodModels) {
-                    visitMethod(className, methodName, methodModel.descriptor, methodModel.accessTransform)
+                    visitMethod(
+                        className,
+                        methodName,
+                        methodModel.descriptor,
+                        methodModel.accessTransform,
+                        methodModel.awExtendable,
+                    )
                 }
             }
 
@@ -77,7 +84,7 @@ data class AccessModifiers(
 
                 val accessTransform = when (access) {
                     AccessWidenerVisitor.AccessType.ACCESSIBLE -> AccessTransform.PUBLIC
-                    AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(AccessChange.PROTECTED, ModifierChange.REMOVE)
+                    AccessWidenerVisitor.AccessType.EXTENDABLE -> AccessTransform.of(AccessChange.PUBLIC, ModifierChange.REMOVE)
                     else -> AccessTransform.EMPTY
                 }
 
@@ -101,7 +108,13 @@ data class AccessModifiers(
                 }
 
                 if (accessTransform != AccessTransform.EMPTY) {
-                    this@AccessModifiers.visitMethod(owner, name, descriptor, accessTransform)
+                    this@AccessModifiers.visitMethod(
+                        owner,
+                        name,
+                        descriptor,
+                        accessTransform,
+                        awExtendable = access == AccessWidenerVisitor.AccessType.EXTENDABLE,
+                    )
                 }
             }
 
@@ -156,13 +169,14 @@ data class AccessModifiers(
         name: String,
         descriptor: String,
         accessTransform: AccessTransform,
+        awExtendable: Boolean = false,
     ) {
         val classModel = classes.computeIfAbsent(owner) { ClassModel() }
 
         var existingMethod = classModel.method(name, descriptor)
 
         if (existingMethod == null) {
-            existingMethod = ClassModel.MethodModel(descriptor, accessTransform)
+            existingMethod = ClassModel.MethodModel(descriptor, accessTransform, awExtendable)
 
             classModel.methods.computeIfAbsent(name) { mutableListOf() }.add(existingMethod)
         } else {
@@ -174,6 +188,7 @@ data class AccessModifiers(
                 ClassModel.MethodModel(
                     descriptor,
                     accessTransform.merge(existingMethod.accessTransform),
+                    awExtendable || existingMethod.awExtendable,
                 ),
             )
         }
@@ -216,7 +231,13 @@ data class AccessModifiers(
         name: String,
         descriptor: String,
     ) = classes[owner]?.method(name, descriptor)?.let {
-        access.applyVisibilityModifiers(it.accessTransform.access).applyFinalModifiers(it.accessTransform.final)
+        val accessChange = if (it.awExtendable && access and Opcodes.ACC_PUBLIC != 0) {
+            AccessChange.PUBLIC
+        } else {
+            it.accessTransform.access
+        }
+
+        access.applyVisibilityModifiers(accessChange).applyFinalModifiers(it.accessTransform.final)
     } ?: access
 
     fun getFieldAccess(
@@ -272,6 +293,7 @@ data class AccessModifiers(
         data class MethodModel(
             val descriptor: String,
             @Serializable(AccessTransformSerializer::class) val accessTransform: AccessTransform,
+            val awExtendable: Boolean = false,
         )
 
         @Serializable
@@ -293,14 +315,26 @@ data class AccessModifiers(
             encoder: Encoder,
             value: AccessTransform
         ) = encoder.encodeStructure(descriptor) {
-            encodeSerializableElement(serialDescriptor<AccessChange>(), 0, kotlinx.serialization.serializer(), value.access)
-            encodeSerializableElement(serialDescriptor<ModifierChange>(), 1, kotlinx.serialization.serializer(), value.final)
+            encodeSerializableElement(descriptor, 0, kotlinx.serialization.serializer(), value.access)
+            encodeSerializableElement(descriptor, 1, kotlinx.serialization.serializer(), value.final)
         }
 
         override fun deserialize(decoder: Decoder): AccessTransform = decoder.decodeStructure(descriptor) {
+            var accessChange: AccessChange? = null
+            var finalChange: ModifierChange? = null
+
+            while (true) {
+                when (val index = decodeElementIndex(descriptor)) {
+                    CompositeDecoder.DECODE_DONE -> break
+                    0 -> accessChange = decodeSerializableElement(descriptor, 0, kotlinx.serialization.serializer())
+                    1 -> finalChange = decodeSerializableElement(descriptor, 1, kotlinx.serialization.serializer())
+                    else -> throw SerializationException("Unexpected AccessTransform field index: $index")
+                }
+            }
+
             AccessTransform.of(
-                decodeSerializableElement(serialDescriptor<AccessChange>(), 0, kotlinx.serialization.serializer()),
-                decodeSerializableElement(serialDescriptor<ModifierChange>(), 1, kotlinx.serialization.serializer()),
+                accessChange ?: throw SerializationException("Missing required field: accessChange"),
+                finalChange ?: throw SerializationException("Missing required field: finalChange"),
             )
         }
     }

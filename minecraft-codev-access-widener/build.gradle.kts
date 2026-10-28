@@ -16,6 +16,8 @@ dependencies {
     api(group = "org.cadixdev", name = "at", version = "0.1.0-rc1")
 
     implementation(projects.minecraftCodevCore)
+
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.0-M1")
 }
 
 tasks.test {
