@@ -17,10 +17,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 import kotlin.io.path.*
 
 fun <R : Any> RepositoryResourceAccessor.withCachedResource(
@@ -87,26 +83,14 @@ internal fun clientJarPath(
     version: String,
 ) = getVanillaExtractJarPath(cacheDirectory, version, "client")
 
-private val fallbackLocks = ConcurrentHashMap<Path, Lock>()
-
 @Blocking
 private fun withLock(path: Path, action: () -> Unit) {
-    if (path.notExists()) {
-        path.createFile()
-    }
-
     FileChannel.open(path, StandardOpenOption.CREATE, StandardOpenOption.WRITE).use { channel ->
         while (true) {
             val lock = try {
                 channel.tryLock()
             } catch (_: OverlappingFileLockException) {
-                fallbackLocks.computeIfAbsent(path) {
-                    ReentrantLock()
-                }.withLock {
-                    action()
-                }
-
-                return
+                null
             }
 
             if (lock == null) {
@@ -168,14 +152,13 @@ fun cacheExpensiveOperation(
         .resolve(operationName)
         .resolve(directoryName)
 
-    val allCached = outputPaths.all {
-        cachedOperationDirectoryName.resolve(it.name).exists()
-    }
-
     cachedOperationDirectoryName.createDirectories()
 
     withLock(cachedOperationDirectoryName.resolve("lock")) {
         val outputPaths = outputPaths.toList()
+        val allCached = outputPaths.all {
+            cachedOperationDirectoryName.resolve(it.name).exists()
+        }
 
         if (allCached) {
             for (outputPath in outputPaths) {
@@ -206,11 +189,27 @@ fun cacheExpensiveOperation(
             val cachedOutput = cachedOperationDirectoryName.resolve(outputPath.name)
 
             if (temporaryPath.exists()) {
-                temporaryPath.copyTo(
-                    cachedOutput,
-                    StandardCopyOption.COPY_ATTRIBUTES,
-                    StandardCopyOption.REPLACE_EXISTING,
-                )
+                val stagedOutput = Files.createTempFile(cachedOperationDirectoryName, ".cache-", ".tmp")
+                var publishing = false
+                try {
+                    temporaryPath.copyTo(
+                        stagedOutput,
+                        StandardCopyOption.COPY_ATTRIBUTES,
+                        StandardCopyOption.REPLACE_EXISTING,
+                    )
+                    publishing = true
+                    Files.move(stagedOutput, cachedOutput, StandardCopyOption.REPLACE_EXISTING)
+                } catch (failure: Exception) {
+                    val incompletePaths = if (publishing) listOf(stagedOutput, cachedOutput) else listOf(stagedOutput)
+                    for (incompletePath in incompletePaths) {
+                        try {
+                            incompletePath.deleteIfExists()
+                        } catch (cleanupFailure: Exception) {
+                            failure.addSuppressed(cleanupFailure)
+                        }
+                    }
+                    throw failure
+                }
             }
         }
 

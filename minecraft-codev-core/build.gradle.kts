@@ -24,6 +24,15 @@ dependencies {
     api(group = "com.google.guava", name = "guava", version = "31.1-jre")
     api(group = "org.apache.commons", name = "commons-lang3", version = "3.12.0")
     implementation(group = "commons-io", name = "commons-io", version = "2.11.0")
+
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.0-M1")
+}
+
+tasks.test {
+    systemProperty("java.io.tmpdir", temporaryDir.absolutePath)
+    doFirst {
+        systemProperty("cache.test.classpath", classpath.asPath)
+    }
 }
 
 publishing {
