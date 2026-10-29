@@ -26,15 +26,10 @@ dependencies {
 
 tasks.test {
     workingDir(layout.projectDirectory)
-    val temporaryDirectory = layout.buildDirectory.dir("reports/test/tmp")
-    systemProperty("java.io.tmpdir", temporaryDirectory.get().asFile.absolutePath)
-    doFirst { temporaryDirectory.get().asFile.mkdirs() }
-    reports.html.outputLocation.set(layout.buildDirectory.dir("reports/test/html"))
-    reports.junitXml.outputLocation.set(layout.buildDirectory.dir("reports/test/xml"))
-    binaryResultsDirectory.set(layout.buildDirectory.dir("reports/test/binary"))
+    systemProperty("java.io.tmpdir", temporaryDir.absolutePath)
     dependsOn(tasks.pluginUnderTestMetadata)
-    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
-    systemProperty("fixture.gradleJava", System.getProperty("java.home"))
+    executable = javaToolchains.launcherFor {}.get().executablePath.asFile.absolutePath
     val fixtureProject = layout.projectDirectory.dir("integration-test/fabric")
     inputs.dir(fixtureProject)
+    inputs.dir(layout.projectDirectory.dir("integration-test/fabric-includes"))
 }

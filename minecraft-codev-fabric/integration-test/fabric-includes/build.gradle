@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+    id 'minecraft-codev-fabric' apply false
+}
+
+tasks.register('input', Jar) {
+    archiveFileName = 'input.jar'
+    destinationDirectory = layout.buildDirectory.dir('inputs')
+    from('inputs/consumer')
+}
+def first = tasks.register('first', Jar) {
+    archiveFileName = 'library.jar'
+    destinationDirectory = layout.buildDirectory.dir('inputs/a')
+    from('inputs/first')
+}
+def second = tasks.register('second', Jar) {
+    archiveFileName = providers.gradleProperty('secondName').orElse('other.jar')
+    destinationDirectory = layout.buildDirectory.dir('inputs/b')
+    from('inputs/second')
+}
+
+tasks.register('embed', net.msrandom.minecraftcodev.fabric.task.JarInJar) {
+    input.set(tasks.named('input', Jar).flatMap { it.archiveFile })
+    archiveFileName = 'output.jar'
+    destinationDirectory = layout.buildDirectory.dir('libs')
+    [first, second, first].eachWithIndex { source, index ->
+        def info = objects.newInstance(net.msrandom.minecraftcodev.includes.IncludedJarInfo)
+        info.group.set('demo')
+        info.moduleName.set('library' + index)
+        info.artifactVersion.set('1')
+        info.versionRange.set('[1,)')
+        info.file.set(source.flatMap { it.archiveFile })
+        includedJarInfo.add(info)
+    }
+}

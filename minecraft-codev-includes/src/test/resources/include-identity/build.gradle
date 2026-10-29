@@ -1,0 +1,200 @@
+import net.msrandom.minecraftcodev.includes.IncludedJarInfo
+import net.msrandom.minecraftcodev.includes.IncludesJar
+import net.msrandom.minecraftcodev.includes.IncludeTargetOrigin
+import net.msrandom.minecraftcodev.includes.IncludeTargetSource
+import net.msrandom.minecraftcodev.includes.ResolvedIncludeSource
+import org.gradle.api.artifacts.component.ModuleComponentSelector
+import org.gradle.api.artifacts.component.ProjectComponentSelector
+import org.gradle.api.attributes.Category
+import org.gradle.api.attributes.LibraryElements
+import org.gradle.api.attributes.Usage
+import java.util.jar.JarFile
+
+plugins {
+    id 'java'
+    id 'minecraft-codev-includes'
+}
+
+println "FIXTURE_TOOLCHAIN Gradle ${gradle.gradleVersion} JVM ${System.getProperty('java.version')} ${System.getProperty('java.home')}"
+
+[IncludedJarInfo, IncludesJar, IncludeTargetOrigin, IncludeTargetSource, ResolvedIncludeSource].each { type ->
+    def source = new File(type.protectionDomain.codeSource.location.toURI()).canonicalFile
+    assert source.toPath().startsWith(file(providers.gradleProperty('localIncludesBuild').get()).canonicalFile.toPath())
+    assert Collections.list(type.classLoader.getResources(type.name.replace('.', '/') + '.class')).size() == 1
+    println "CODE_SOURCE $type.name $source"
+}
+
+configurations {
+    includeLibraries {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+        attributes {
+            attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+            attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+            attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+        }
+    }
+}
+
+dependencies {
+    includeLibraries(project(':producer')) {
+        capabilities { requireCapability('chosen:producer-extra') }
+    }
+}
+
+tasks.register('verifyIdentity') {
+    dependsOn configurations.includeLibraries
+    doLast {
+        [IncludedJarInfo, IncludesJar].each { type ->
+            def source = new File(type.protectionDomain.codeSource.location.toURI()).canonicalFile
+            assert source.toPath().startsWith(file(providers.gradleProperty('localIncludesBuild').get()).canonicalFile.toPath())
+            println "CODE_SOURCE "+type.name+" "+source
+        }
+        def configuration = configurations.includeLibraries
+        def root = configuration.incoming.resolutionResult.rootComponent.get()
+        root.dependencies.each { edge ->
+            assert edge.selected.id.projectPath == ':producer'
+            println "SELECTED "+edge.selected.id+" VARIANT "+edge.resolvedVariant.displayName+" REQUEST "+edge.requested.requestedCapabilities
+        }
+        def artifacts = configuration.incoming.artifacts.resolvedArtifacts.get()
+        artifacts.each { artifact ->
+            println "ARTIFACT_VARIANT "+artifact.variant.displayName+" "+artifact.variant.attributes+" "+artifact.variant.capabilities
+            root.dependencies.each { edge ->
+                println "GRAPH_VARIANT "+edge.resolvedVariant.displayName+" "+edge.resolvedVariant.attributes+" "+edge.resolvedVariant.capabilities+" EQUAL "+(edge.resolvedVariant == artifact.variant)
+            }
+        }
+        def jars = IncludedJarInfo.@Companion.fromResolutionResults(objects, root, artifacts, logger)
+        assert jars.size() == 1
+        def info = jars[0]
+        assert info.group.get() == 'chosen'
+        assert info.moduleName.get() == 'producer-extra'
+        assert info.artifactVersion.get() == '3.2'
+        assert info.versionRange.get() == '[3.2,)'
+        new JarFile(info.file.get().asFile).withCloseable { jar ->
+            assert jar.getEntry('smoke/Payload.class') != null
+        }
+        println "IDENTITY chosen:producer-extra:3.2 [3.2,)"
+    }
+}
+
+if (providers.gradleProperty('sourceScenario').isPresent()) {
+    def scenario = providers.gradleProperty('sourceScenario').get()
+    def single = scenario == 'default'
+    def createGraph = { String name ->
+        configurations.create(name) {
+            canBeConsumed = false
+            canBeResolved = true
+            transitive = false
+            attributes {
+                attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+                attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.LIBRARY))
+                attribute(LibraryElements.LIBRARY_ELEMENTS_ATTRIBUTE, objects.named(LibraryElements, LibraryElements.JAR))
+            }
+        }
+    }
+    def ordinary = createGraph('ordinaryIncludes')
+    def a = createGraph('targetAIncludes')
+    def repeatedA = createGraph('repeatedTargetAIncludes')
+    def b = single ? null : createGraph('targetBIncludes')
+    def baseName = single ? 'producer-extra' : 'producer-a'
+    def requestA = { dependencies.project(path: ':producer').tap { capabilities { requireCapability("chosen:$baseName") } } }
+    dependencies.add(a.name, requestA())
+    dependencies.add(repeatedA.name, requestA())
+    if (b != null) dependencies.add(b.name, dependencies.project(path: ':producer').tap { capabilities { requireCapability('chosen:producer-b') } })
+
+    def expectedRange = '[3.2,)'
+    if (scenario in ['strict', 'required', 'preferred', 'project']) {
+        ordinary.resolutionStrategy.dependencySubstitution {
+            substitute(module('ordinary:producer')).using(variant(project(':producer')) {
+                capabilities { requireCapability("chosen:$baseName") }
+            })
+        }
+        def module = dependencies.create('ordinary:producer').tap {
+            capabilities { requireCapability("chosen:$baseName") }
+            version {
+                if (scenario == 'strict') strictly('[2,3)')
+                else if (scenario == 'preferred') { require(''); prefer('2.5') }
+                else require('[2,4)')
+            }
+        }
+        dependencies.add(ordinary.name, module)
+        if (scenario == 'project') dependencies.add(ordinary.name, requestA())
+        expectedRange = [strict: '[2,3)', required: '[2,4)', preferred: '2.5', project: '[3.2,)'][scenario]
+    } else if (scenario == 'default') {
+        dependencies.add(ordinary.name, dependencies.project(path: ':producer'))
+    } else if (scenario == 'ambiguous') {
+        dependencies.add(ordinary.name, dependencies.project(path: ':producer').tap {
+            capabilities { requireCapability('ordinary:producer'); requireFeature('a') }
+        })
+    }
+
+    def originA = new IncludeTargetOrigin(rootDir.canonicalPath, ':producer', single ? 'extra' : 'demo:a', 'chosen', baseName)
+    def targetSources = [new IncludeTargetSource(originA, a), new IncludeTargetSource(originA, repeatedA)]
+    if (b != null) targetSources.add(new IncludeTargetSource(
+        new IncludeTargetOrigin(rootDir.canonicalPath, ':producer', 'demo:b', 'chosen', 'producer-b'), b))
+    def allGraphs = [ordinary] + targetSources.collect { it.configuration }
+
+    tasks.register('gatheredIncludes', IncludesJar) {
+        allGraphs.each { assert it.state.toString() == 'UNRESOLVED' }
+        fromResolutionSources(providers.provider { ordinary }, providers.provider { targetSources })
+        allGraphs.each { assert it.state.toString() == 'UNRESOLVED' }
+        println 'CONFIGURATION_UNRESOLVED after multi-source task API registration'
+        input.set(tasks.named('jar', Jar).flatMap { it.archiveFile })
+        archiveFileName = 'gathered.jar'
+        destinationDirectory = layout.buildDirectory.dir('gathered')
+        from(includedJarInfo.map { infos -> infos.collect { it.file.get().asFile } }) { into('nested') }
+        doLast {
+            allGraphs.eachWithIndex { graph, index ->
+                def root = graph.incoming.resolutionResult.rootComponent.get()
+                println "SOURCE $index ${index == 0 ? 'ordinary' : targetSources[index - 1].origin}"
+                root.dependencies.each { edge ->
+                    println "SELECTED $edge.selected.id VARIANT $edge.resolvedVariant.displayName REQUEST $edge.requested CAPABILITIES $edge.requested.capabilitySelectors ATTRIBUTES $edge.resolvedVariant.attributes SELECTED_CAPABILITIES $edge.resolvedVariant.capabilities"
+                }
+                graph.incoming.artifacts.resolvedArtifacts.get().each { artifact ->
+                    println "ARTIFACT $artifact.id FILE $artifact.file VARIANT $artifact.variant.displayName ATTRIBUTES $artifact.variant.attributes CAPABILITIES $artifact.variant.capabilities"
+                }
+            }
+            def ordinaryEdges = ordinary.incoming.resolutionResult.rootComponent.get().dependencies.toList()
+            if (scenario in ['strict', 'required', 'preferred']) {
+                assert ordinaryEdges.last().requested instanceof ModuleComponentSelector
+                def constraint = ordinaryEdges.last().requested.versionConstraint
+                def range = constraint.strictVersion ?: constraint.requiredVersion ?: constraint.preferredVersion
+                assert range == expectedRange
+                println "ORDINARY_LAST $scenario ${ordinaryEdges.last().requested} RANGE $range"
+            } else if (scenario in ['project', 'default']) {
+                assert ordinaryEdges.last().requested instanceof ProjectComponentSelector
+                println "ORDINARY_LAST $scenario ${ordinaryEdges.last().requested} RANGE $expectedRange"
+            } else assert ordinaryEdges.empty
+
+            def infos = includedJarInfo.get()
+            assert infos.size() == (single ? 1 : 3)
+            infos.each { info ->
+                assert info.group.get() == 'chosen'
+                assert info.artifactVersion.get() == '3.2'
+                assert info.moduleName.get() in (single ? ['producer-extra'] : ['producer-a', 'producer-b'])
+                assert info.versionRange.get() == (info.moduleName.get() == 'producer-b' ? '[3.2,)' : expectedRange)
+                println "INCLUDED ${info.group.get()}:${info.moduleName.get()}:${info.artifactVersion.get()} ${info.versionRange.get()} FILE ${info.file.get().asFile}"
+                new JarFile(info.file.get().asFile).withCloseable { jar ->
+                    if (single) assert jar.getEntry('smoke/Payload.class') != null
+                    else if (info.file.get().asFile.name.contains('sources')) assert jar.getEntry('sources/a/Payload.java') != null
+                    else {
+                        def target = info.moduleName.get().endsWith('-a') ? 'a' : 'b'
+                        assert jar.getEntry("payload/$target/Payload.java") != null
+                        assert jar.getEntry('smoke/Payload.class') != null
+                    }
+                }
+            }
+            new JarFile(archiveFile.get().asFile).withCloseable { jar ->
+                assert Collections.list(jar.entries()).count { !it.directory && it.name.startsWith('nested/') } == infos.size()
+            }
+            println "GATHERED $scenario ${infos.size()} $expectedRange ${archiveFile.get().asFile}"
+        }
+    }
+    gradle.taskGraph.whenReady { graph ->
+        (single ? ['jar'] : ['aPayload', 'aSources', 'bPayload']).each { name ->
+            assert graph.hasTask(":producer:$name")
+            println "PRODUCER_TASK :producer:$name"
+        }
+    }
+}

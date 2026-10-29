@@ -8,6 +8,7 @@ import net.msrandom.minecraftcodev.core.utils.toPath
 import net.msrandom.minecraftcodev.core.utils.zipFileSystem
 import net.msrandom.minecraftcodev.fabric.MinecraftCodevFabricPlugin
 import net.msrandom.minecraftcodev.includes.IncludesJar
+import org.gradle.api.GradleException
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.tasks.Internal
 import org.gradle.language.base.plugins.LifecycleBasePlugin
@@ -43,6 +44,15 @@ abstract class JarInJar : IncludesJar() {
 
         if (info.isEmpty()) {
             return
+        }
+
+        val sourcesByName = mutableMapOf<String, java.io.File>()
+        info.forEach {
+            val source = it.file.get().asFile
+            val previous = sourcesByName.putIfAbsent(source.name, source)
+            if (previous != null && previous != source) {
+                throw GradleException("Conflicting included JAR name '${source.name}': $previous and $source")
+            }
         }
 
         val dir = outputDirectory.getAsPath().createDirectories()

@@ -1,0 +1,33 @@
+plugins { id 'java' }
+group = 'ordinary'
+version = '2.5'
+configurations.runtimeElements.outgoing {
+    capability('ordinary:producer:2.5')
+    capability('chosen:producer-extra:3.2')
+}
+
+if (providers.gradleProperty('sourceScenario').isPresent() && providers.gradleProperty('sourceScenario').get() != 'default') {
+    ['a', 'b'].each { target ->
+        java.registerFeature(target) {
+            usingSourceSet(sourceSets.main)
+            capability('ordinary', "producer-$target", '2.5')
+            capability('chosen', "producer-$target", '3.2')
+        }
+        def payload = tasks.register("${target}Payload", Jar) {
+            archiveClassifier = target
+            from(sourceSets.main.output)
+            from('src/main/java/smoke/Payload.java') { into("payload/$target") }
+        }
+        configurations.named("${target}RuntimeElements") {
+            outgoing.capability('ordinary:producer:2.5')
+            outgoing.artifacts.clear()
+            outgoing.artifact(payload)
+            if (target == 'a') {
+                outgoing.artifact(tasks.register('aSources', Jar) {
+                    archiveClassifier = 'a-sources'
+                    from('src/main/java/smoke/Payload.java') { into('sources/a') }
+                })
+            }
+        }
+    }
+}
