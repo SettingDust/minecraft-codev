@@ -24,8 +24,12 @@ dependencies {
 
     api(projects.minecraftCodevCore)
     api(projects.minecraftCodevIncludes)
+
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:1.9.0-M1")
 }
 
 tasks.test {
     dependsOn(tasks.pluginUnderTestMetadata)
+    executable = javaToolchains.launcherFor {}.get().executablePath.asFile.absolutePath
+    systemProperty("java.io.tmpdir", temporaryDir.absolutePath)
 }

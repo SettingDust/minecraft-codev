@@ -27,7 +27,6 @@ import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import kotlin.io.path.copyTo
 import kotlin.io.path.extension
@@ -105,7 +104,9 @@ abstract class RemapAction : TransformAction<RemapAction.Parameters> {
 
         val inputPath = input.toPath()
 
-        val cacheKey = buildList<Path> {
+        val cacheKey = buildList<Any> {
+            add("$sourceNamespace-$targetNamespace")
+            addAll(classpath.map { it.toPath() })
             add(parameters.mappings.getAsPath())
             add(inputPath)
         }
@@ -131,7 +132,9 @@ abstract class RemapAction : TransformAction<RemapAction.Parameters> {
                     for (includedJar in handler.list(root)) {
                         val path = outputFs.getPath(includedJar)
 
-                        val cacheKey = buildList<Path> {
+                        val cacheKey = buildList<Any> {
+                            add("$sourceNamespace-$targetNamespace")
+                            addAll(classpath.map { it.toPath() })
                             add(parameters.mappings.getAsPath())
                             add(path)
                         }

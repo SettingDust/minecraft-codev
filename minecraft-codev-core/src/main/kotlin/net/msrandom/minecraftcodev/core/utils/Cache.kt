@@ -13,6 +13,7 @@ import java.io.InputStream
 import java.lang.Thread.sleep
 import java.nio.channels.FileChannel
 import java.nio.channels.OverlappingFileLockException
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -112,7 +113,7 @@ private fun withLock(path: Path, action: () -> Unit) {
 fun cacheExpensiveOperation(
     cacheDirectory: Path,
     operationName: String,
-    cacheKey: Iterable<Path>,
+    cacheKey: Iterable<Any>,
     vararg outputPaths: Path,
     generate: (List<Path>) -> Unit,
 ) {
@@ -120,7 +121,11 @@ fun cacheExpensiveOperation(
         coroutineScope {
             cacheKey.map {
                 async {
-                    hashFile(it)
+                    when (it) {
+                        is Path -> hashFile(it)
+                        is String -> Hashing.murmur3_32_fixed().hashString(it, StandardCharsets.UTF_8)
+                        else -> error("Unsupported cache key type ${it::class.qualifiedName}")
+                    }
                 }
             }.awaitAll().toSortedSet { a, b ->
                 val bytesA = a.asBytes()

@@ -82,27 +82,45 @@ class CacheExpensiveOperationTests {
     @Test
     fun generationFailurePropagatesAndSameKeyCanMissThenHit() {
         val input = Files.writeString(root.resolve("input"), "key")
+        val key = listOf(input, "obf-named")
         val result = output(root, "retry")
         val failure = IllegalStateException("generation failed")
         val thrown = assertThrows(IllegalStateException::class.java) {
-            cacheExpensiveOperation(root.resolve("cache"), "test", listOf(input), result) { throw failure }
+            cacheExpensiveOperation(root.resolve("cache"), "test", key, result) { throw failure }
         }
         assertSame(failure, thrown)
         assertFalse(Files.exists(result))
         val generations = AtomicInteger()
-        cacheExpensiveOperation(root.resolve("cache"), "test", listOf(input), result) { (temporary) ->
+        cacheExpensiveOperation(root.resolve("cache"), "test", key, result) { (temporary) ->
             generations.incrementAndGet()
             Files.writeString(temporary, CONTENT)
         }
         assertEquals(CONTENT, Files.readString(result))
         Files.delete(result)
-        cacheExpensiveOperation(root.resolve("cache"), "test", listOf(input), result) {
+        cacheExpensiveOperation(root.resolve("cache"), "test", key, result) {
             generations.incrementAndGet()
             throw AssertionError("completed cache must hit")
         }
         assertEquals(1, generations.get())
         assertEquals(CONTENT, Files.readString(result))
-        println("FAILURE_RECOVERY original exception propagated; same-key retry miss and subsequent hit passed")
+        val changedKey = listOf(input, "obf-alt")
+        cacheExpensiveOperation(root.resolve("cache"), "test", changedKey, result) { (temporary) ->
+            generations.incrementAndGet()
+            Files.writeString(temporary, CONTENT)
+        }
+        Files.delete(result)
+        cacheExpensiveOperation(root.resolve("cache"), "test", changedKey, result) {
+            throw AssertionError("changed string key must hit after generation")
+        }
+        assertEquals(2, generations.get())
+        assertEquals(CONTENT, Files.readString(result))
+        val unsupported = assertThrows(IllegalStateException::class.java) {
+            cacheExpensiveOperation(root.resolve("cache"), "test", listOf(input, 42), result) {
+                throw AssertionError("unsupported key must fail before generation")
+            }
+        }
+        assertTrue(unsupported.message!!.contains("Unsupported cache key type kotlin.Int"))
+        println("FAILURE_RECOVERY original exception propagated; mixed Path/String retry, changed-string miss/hit and unsupported type checks passed")
     }
 
     @Test

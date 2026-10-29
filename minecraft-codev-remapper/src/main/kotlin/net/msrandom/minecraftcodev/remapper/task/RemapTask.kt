@@ -23,7 +23,6 @@ import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
-import java.nio.file.Path
 import javax.inject.Inject
 
 @CacheableTask
@@ -80,7 +79,8 @@ abstract class RemapTask : DefaultTask() {
 
     @TaskAction
     fun remap() {
-        val cacheKey = buildList<Path> {
+        val cacheKey = buildList<Any> {
+            add("${sourceNamespace.get()}-${targetNamespace.get()}")
             addAll(classpath.map { it.toPath() })
             add(mappings.getAsPath())
             add(inputFile.getAsPath())
