@@ -1,27 +1,75 @@
-name: Publish
+name: Publish Maven
 
 on:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths: ['**/gradle.properties']
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.repository }}-maven
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   publish:
-    - name: Checkout
-      uses: actions/checkout@v2
-      with:
-        ref: ${{ github.head_ref }}
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout pinned source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
-    - name: Set up JDK 8
-      uses: actions/setup-java@v2
-      with:
-        java-version: 8
-        distribution: 'adopt'
+      - name: Set up Java 8 toolchain
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '8'
 
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2
+      - name: Set up Java 11 toolchain
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: '11.0.16'
+          java-package: jdk+jcef
 
-    - name: Test and Publish
-      run: ./gradlew test publish
+      # IDEA instrumentation was verified with JBR17, not arbitrary vendors.
+      - name: Set up JBR 17 launcher
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: '17.0.14'
+          java-package: jdk+jcef
 
+      - name: Set up Deno 2
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.4
+
+      - name: Publish complete Maven tree
+        shell: bash
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          SOURCE_SHA: ${{ github.sha }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Scratch Git admin cannot use checkout-local authentication.
+          auth="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="http.${REPOSITORY_URL}.extraheader"
+          export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
+          toolchains="${JAVA_HOME_8_X64},${JAVA_HOME_11_X64}"
+          property=ORG_GRADLE_PROJECT_org.gradle.java.installations.paths
+          env "$property=$toolchains" \
+            deno run --allow-read --allow-write --allow-env --allow-run \
+              .github/publish-maven.ts \
+              "$SOURCE_REF" "$SOURCE_SHA" "$REPOSITORY_URL"

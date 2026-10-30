@@ -12,6 +12,13 @@ plugins {
     `maven-publish`
 }
 
+// Keep the cross-project publisher and its non-cacheable lifecycle local to CI invocations.
+if (providers.gradleProperty("ciMavenBase").isPresent || providers.gradleProperty("ciMavenOutput").isPresent ||
+    gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "prepareCiMavenRepository" || it.endsWith("CiMavenRepository") }
+) {
+    apply(from = "gradle/ci-maven.gradle.kts")
+}
+
 tasks.test {
     dependsOn(":minecraft-codev-mixins:test", ":minecraft-codev-fabric:test", ":minecraft-codev-forge:test")
 }
