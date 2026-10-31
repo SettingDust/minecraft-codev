@@ -3,44 +3,44 @@
   <groupId>com.jetbrains.plugins</groupId>
   <artifactId>net.msrandom.minecraft-codev</artifactId>
   <versioning>
-    <lastUpdated>20261031043613</lastUpdated>
+    <lastUpdated>20261031052626</lastUpdated>
     <snapshot>
-      <timestamp>20261031.043613</timestamp>
-      <buildNumber>1</buildNumber>
+      <timestamp>20261031.052626</timestamp>
+      <buildNumber>2</buildNumber>
     </snapshot>
     <snapshotVersions>
       <snapshotVersion>
         <extension>jar</extension>
-        <value>1.0-20261031.043613-1</value>
-        <updated>20261031043613</updated>
-      </snapshotVersion>
-      <snapshotVersion>
-        <classifier>javadoc</classifier>
-        <extension>jar</extension>
-        <value>1.0-20261031.043613-1</value>
-        <updated>20261031043613</updated>
+        <value>1.0-20261031.052626-2</value>
+        <updated>20261031052626</updated>
       </snapshotVersion>
       <snapshotVersion>
         <classifier>base</classifier>
         <extension>jar</extension>
-        <value>1.0-20261031.043613-1</value>
-        <updated>20261031043613</updated>
+        <value>1.0-20261031.052626-2</value>
+        <updated>20261031052626</updated>
       </snapshotVersion>
       <snapshotVersion>
         <extension>pom</extension>
-        <value>1.0-20261031.043613-1</value>
-        <updated>20261031043613</updated>
+        <value>1.0-20261031.052626-2</value>
+        <updated>20261031052626</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <extension>module</extension>
+        <value>1.0-20261031.052626-2</value>
+        <updated>20261031052626</updated>
       </snapshotVersion>
       <snapshotVersion>
         <classifier>sources</classifier>
         <extension>jar</extension>
-        <value>1.0-20261031.043613-1</value>
-        <updated>20261031043613</updated>
+        <value>1.0-20261031.052626-2</value>
+        <updated>20261031052626</updated>
       </snapshotVersion>
       <snapshotVersion>
-        <extension>module</extension>
-        <value>1.0-20261031.043613-1</value>
-        <updated>20261031043613</updated>
+        <classifier>javadoc</classifier>
+        <extension>jar</extension>
+        <value>1.0-20261031.052626-2</value>
+        <updated>20261031052626</updated>
       </snapshotVersion>
     </snapshotVersions>
   </versioning>

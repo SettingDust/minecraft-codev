@@ -1,0 +1,154 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.msrandom",
+    "module": "minecraft-codev-fabric",
+    "version": "0.1.1+terrarium.0.7.2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.4.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2.jar",
+          "url": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2.jar",
+          "size": 134575,
+          "sha512": "45ffb43d66e0573da22f5d6c47bf9c1ee5f42284682bd0159f8a5667519f047ef2f99b2cf61b6a5d6e51c00228ae13a047aef3f287f5c4ad99aada791db327d5",
+          "sha256": "b669255a2b36339031c8a9e93217bea0fcc3bee4c63397c3dd3c8354d6ab1045",
+          "sha1": "eafd0082a608a7170ea4fd8a8c63b03083689561",
+          "md5": "1abb1dfcc435fd11d74f63e11fedd038"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib"
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-access-widener",
+          "version": {
+            "requires": "0.1.0+terrarium.0.6.3"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-remapper",
+          "version": {
+            "requires": "0.1.0+terrarium.0.7.2"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-mixins",
+          "version": {
+            "requires": "0.1.1+terrarium.0.6.0"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-includes",
+          "version": {
+            "requires": "0.1.0+terrarium.0.6.5"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-runs",
+          "version": {
+            "requires": "0.1.0+terrarium.0.7.2"
+          }
+        }
+      ],
+      "dependencyConstraints": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.3.0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2.jar",
+          "url": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2.jar",
+          "size": 134575,
+          "sha512": "45ffb43d66e0573da22f5d6c47bf9c1ee5f42284682bd0159f8a5667519f047ef2f99b2cf61b6a5d6e51c00228ae13a047aef3f287f5c4ad99aada791db327d5",
+          "sha256": "b669255a2b36339031c8a9e93217bea0fcc3bee4c63397c3dd3c8354d6ab1045",
+          "sha1": "eafd0082a608a7170ea4fd8a8c63b03083689561",
+          "md5": "1abb1dfcc435fd11d74f63e11fedd038"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2-sources.jar",
+          "url": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2-sources.jar",
+          "size": 17775,
+          "sha512": "877ee72199b7fc6d73c2085666650990ef393615f7a24f80d5e40046a28538d613ccb260e2d6b8f78419c6dbe04679a4781f484a2658cca750c4df73a9815c06",
+          "sha256": "80aa80e97b3422985550eef8e51f8d51d9cfde03894cbac831bbe977755873a2",
+          "sha1": "4cdf74bf7ecdd716675278d189fa4ec9e8df503f",
+          "md5": "3707e2a95149fcfe4cbc4c106c981dca"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2-javadoc.jar",
+          "url": "minecraft-codev-fabric-0.1.1+terrarium.0.7.2-javadoc.jar",
+          "size": 261,
+          "sha512": "1487e5a20c9e4d74f298e07c42e96a61be11b7a768c3fbc199ee138cd68e1fc2267d1cfe3f11f288acc05df755315344d052cc5f6f751f126ab4fe1caa5125ea",
+          "sha256": "c6deada2fac53b8ea6523dbda77597b128006674616f140f04df23264c6d1aa3",
+          "sha1": "2ad14aed781c4a73ed4dbb421966d408a0a06686",
+          "md5": "f43436d6bec321290f6af228ad602604"
+        }
+      ]
+    }
+  ]
+}
