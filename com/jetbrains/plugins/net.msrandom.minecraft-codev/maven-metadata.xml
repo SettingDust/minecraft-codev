@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<metadata>
+  <groupId>com.jetbrains.plugins</groupId>
+  <artifactId>net.msrandom.minecraft-codev</artifactId>
+  <versioning>
+    <latest>1.0-SNAPSHOT</latest>
+    <versions>
+      <version>1.0-SNAPSHOT</version>
+    </versions>
+    <lastUpdated>20261031043913</lastUpdated>
+  </versioning>
+</metadata>

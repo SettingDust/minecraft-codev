@@ -1,0 +1,203 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "net.msrandom",
+    "module": "minecraft-codev-forge",
+    "version": "0.1.0+terrarium.0.9.2",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "9.4.0"
+    }
+  },
+  "variants": [
+    {
+      "name": "apiElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-forge-0.1.0+terrarium.0.9.2.jar",
+          "url": "minecraft-codev-forge-0.1.0+terrarium.0.9.2.jar",
+          "size": 328228,
+          "sha512": "809c76ffe5de7c6613cb5b3ef3b8f26d04267fdd525aad4dc60f657db535ce2bf7ca5c539b2e54e51c71f4d61a6391fe265320a720d3105e3f305bbce4e9ba87",
+          "sha256": "1dc189b305d5ff485612f66430a1aafcd564c0da57a027ae77f30d27b12ded1c",
+          "sha1": "67969ea69b6486ec26f29965049e8a423ae922c5",
+          "md5": "3bc514eae2dda89fd4876e404ee8ec74"
+        }
+      ]
+    },
+    {
+      "name": "runtimeElements",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.jvm.environment": "standard-jvm",
+        "org.gradle.jvm.version": 11,
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "jvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib"
+        },
+        {
+          "group": "io.arrow-kt",
+          "module": "arrow-core",
+          "version": {
+            "requires": "1.2.4"
+          }
+        },
+        {
+          "group": "io.arrow-kt",
+          "module": "arrow-core-serialization",
+          "version": {
+            "requires": "1.2.4"
+          }
+        },
+        {
+          "group": "net.neoforged.accesstransformers",
+          "module": "at-cli",
+          "version": {
+            "requires": "13.0.3"
+          }
+        },
+        {
+          "group": "org.cadixdev",
+          "module": "lorenz",
+          "version": {
+            "requires": "0.5.8"
+          }
+        },
+        {
+          "group": "de.siegmar",
+          "module": "fastcsv",
+          "version": {
+            "requires": "2.2.0"
+          }
+        },
+        {
+          "group": "org.apache.logging.log4j",
+          "module": "log4j-core",
+          "version": {
+            "requires": "2.12.4"
+          }
+        },
+        {
+          "group": "com.electronwill.night-config",
+          "module": "toml",
+          "version": {
+            "requires": "3.6.0"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-access-widener",
+          "version": {
+            "requires": "0.6.3"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-remapper",
+          "version": {
+            "requires": "0.7.2"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-runs",
+          "version": {
+            "requires": "0.7.2"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-mixins",
+          "version": {
+            "requires": "0.1.0+terrarium.0.6.0"
+          }
+        },
+        {
+          "group": "net.msrandom",
+          "module": "minecraft-codev-includes",
+          "version": {
+            "requires": "0.6.5"
+          }
+        }
+      ],
+      "dependencyConstraints": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.3.0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "minecraft-codev-forge-0.1.0+terrarium.0.9.2.jar",
+          "url": "minecraft-codev-forge-0.1.0+terrarium.0.9.2.jar",
+          "size": 328228,
+          "sha512": "809c76ffe5de7c6613cb5b3ef3b8f26d04267fdd525aad4dc60f657db535ce2bf7ca5c539b2e54e51c71f4d61a6391fe265320a720d3105e3f305bbce4e9ba87",
+          "sha256": "1dc189b305d5ff485612f66430a1aafcd564c0da57a027ae77f30d27b12ded1c",
+          "sha1": "67969ea69b6486ec26f29965049e8a423ae922c5",
+          "md5": "3bc514eae2dda89fd4876e404ee8ec74"
+        }
+      ]
+    },
+    {
+      "name": "sourcesElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-forge-0.1.0+terrarium.0.9.2-sources.jar",
+          "url": "minecraft-codev-forge-0.1.0+terrarium.0.9.2-sources.jar",
+          "size": 39386,
+          "sha512": "8c7f1a357d3aad8bba40d67b49c63511c6406b37a9accbc60f43b41044470b54e5617ade36a9378f0785eaaecbb9f440d4d92a1e94890aafc94e666a271311b9",
+          "sha256": "e0bd8f4ac75ba8a10aa41ffdd40b6968512b8a97a44fbf4877767e99d96aa802",
+          "sha1": "40c1c84e092e6e6285c0263453a48e279b385188",
+          "md5": "234064761b3c46431cb84cdd0c854959"
+        }
+      ]
+    },
+    {
+      "name": "javadocElements",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "javadoc",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "minecraft-codev-forge-0.1.0+terrarium.0.9.2-javadoc.jar",
+          "url": "minecraft-codev-forge-0.1.0+terrarium.0.9.2-javadoc.jar",
+          "size": 261,
+          "sha512": "1487e5a20c9e4d74f298e07c42e96a61be11b7a768c3fbc199ee138cd68e1fc2267d1cfe3f11f288acc05df755315344d052cc5f6f751f126ab4fe1caa5125ea",
+          "sha256": "c6deada2fac53b8ea6523dbda77597b128006674616f140f04df23264c6d1aa3",
+          "sha1": "2ad14aed781c4a73ed4dbb421966d408a0a06686",
+          "md5": "f43436d6bec321290f6af228ad602604"
+        }
+      ]
+    }
+  ]
+}
