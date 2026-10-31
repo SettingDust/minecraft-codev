@@ -345,7 +345,13 @@ export async function publishMaven(
     }`;
     return result;
   } finally {
-    if (scratch) await Deno.remove(scratch, { recursive: true });
+    if (scratch) {
+      try {
+        await Deno.remove(scratch, { recursive: true });
+      } catch (error) {
+        console.error(`Failed to remove scratch directory ${scratch}:`, error);
+      }
+    }
   }
 }
 
