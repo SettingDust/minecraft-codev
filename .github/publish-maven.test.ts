@@ -788,3 +788,153 @@ console.log("synthetic preparer subprocess, not Gradle");
     },
   });
 });
+
+Deno.test("cleanup failure preserves transaction results", async (test) => {
+  const originalRemove = Deno.remove;
+  const originalError = console.error;
+  const warnings: string[] = [];
+  const paths: string[] = [];
+  let ownedScratch: string | undefined;
+  const cleanupError = new Error("synthetic ENOTEMPTY");
+  const f = await fixture();
+  const runner: Runner = async (command) => {
+    if (command.args[0] === "init" && command.args[1] === "--bare") {
+      ownedScratch = command.args[2].slice(0, -"/git".length);
+      paths.push(ownedScratch);
+    }
+    return await f.runner(command);
+  };
+  async function invoke() {
+    const beforeWarnings = warnings.length;
+    const result = await publishMaven(f.options, runner);
+    assert(warnings.length === beforeWarnings + 1, "One cleanup diagnostic");
+    const warning = warnings.at(-1)!;
+    assert(warning.includes("remove") && warning.includes(ownedScratch!) &&
+      warning.includes("synthetic ENOTEMPTY"), "Operation, path and error visible");
+    return result;
+  }
+  await test.step("successful cleanup control", async () => {
+    const control = await fixture();
+    await seed(control);
+  });
+  Deno.remove = ((path, options) => {
+    if (path === ownedScratch && options?.recursive) {
+      return Promise.reject(cleanupError);
+    }
+    return originalRemove(path, options);
+  }) as typeof Deno.remove;
+  console.error = (...args: unknown[]) => warnings.push(args.map(String).join(" "));
+  try {
+    await test.step("confirmed published retains commit/tree evidence", async () => {
+      const result = await invoke();
+      const after = await f.snapshot();
+      assert(result.status === "published" && result.remoteMayHaveChanged &&
+        result.commit === after.commit && result.tree === after.tree &&
+        result.observedRemote === result.commit && result.base === null &&
+        result.source === f.sha &&
+        result.message === "Intended destination commit and tree confirmed",
+        JSON.stringify(result));
+    });
+    await test.step("no-op and stale skip retain state without push", async () => {
+      const before = await f.snapshot();
+      const noop = await invoke();
+      assert(noop.status === "no-op" && !noop.remoteMayHaveChanged &&
+        noop.base === before.commit && noop.tree === before.tree &&
+        noop.observedRemote === before.commit && !noop.commit, JSON.stringify(noop));
+      f.intercept = async (c) => c.args[0] === "ls-remote" &&
+          c.args.at(-1) === "refs/heads/main"
+        ? { code: 0, stdout: `${"a".repeat(40)}\trefs/heads/main\n`, stderr: "" }
+        : undefined;
+      const skip = await invoke();
+      assert(skip.status === "skip" && !skip.remoteMayHaveChanged &&
+        skip.base === before.commit && skip.tree === before.tree &&
+        skip.observedRemote === before.commit && !skip.commit, JSON.stringify(skip));
+      assert(f.pushes === 1 && (await f.head()) === before.commit, "No extra push");
+      f.intercept = undefined;
+    });
+    await test.step("preparation failure keeps original diagnostic", async () => {
+      f.producer = async () => ({ code: 7, stdout: "producer stdout", stderr: "producer failure" });
+      const result = await invoke();
+      failed(result, "Maven preparation failed (7): producer failure\nproducer stdout");
+      assert(!result.remoteMayHaveChanged && !result.commit && !result.tree &&
+        result.base === await f.head() && result.source === f.sha &&
+        result.message.endsWith("; no destination push attempted"), JSON.stringify(result));
+    });
+    await test.step("write with lost acknowledgement remains uncertain failed", async () => {
+      f.producer = async (_base, candidate) => {
+        await copy(f.payload, candidate);
+        await Deno.writeTextFile(`${candidate}/addition.txt`, "new local bytes");
+        return { code: 0, stdout: "", stderr: "" };
+      };
+      f.intercept = async (c) => {
+        if (!c.args.includes("push")) return undefined;
+        const output = await runCommand(c);
+        assert(output.code === 0, output.stderr);
+        return { ...output, code: 1, stderr: "synthetic lost acknowledgement" };
+      };
+      const result = await invoke();
+      failed(result, "synthetic lost acknowledgement");
+      const after = await f.snapshot();
+      assert(result.remoteMayHaveChanged && result.commit === after.commit &&
+        result.tree === after.tree && result.observedRemote === result.commit &&
+        result.base !== result.commit && result.source === f.sha &&
+        result.message.endsWith("; a destination write may have completed without confirmation"),
+        JSON.stringify(result));
+    });
+    await test.step("CLI JSON and exit codes survive cleanup warnings", async () => {
+      const cliFixture = await fixture("cleanup cli");
+      await Deno.writeTextFile(`${cliFixture.source}/prepare.ts`, `
+if (Deno.args.includes("fail")) Deno.exit(7);
+const candidate = Deno.args.find(a => a.startsWith("-PciMavenOutput="))!.slice(16);
+await Deno.mkdir(candidate);
+await Deno.writeTextFile(candidate + "/payload.txt", "synthetic CLI payload");
+`);
+      const prepare = `${cliFixture.source}/prepare.ts`;
+      await Deno.writeTextFile(`${cliFixture.source}/gradlew.bat`,
+        `@"${Deno.execPath()}" run --allow-write "${prepare}" %*\r\n`);
+      await Deno.writeTextFile(`${cliFixture.source}/gradlew`,
+        `#!/bin/sh\nexec '${Deno.execPath()}' run --allow-write '${prepare}' "$@"\n`);
+      if (Deno.build.os !== "windows") {
+        await Deno.chmod(`${cliFixture.source}/gradlew`, 0o755);
+      }
+      const helper = `${cliFixture.root}/cleanup-cli.ts`;
+      // Run the actual CLI entry with only test-owned scratch removal faulted.
+      await Deno.writeTextFile(helper, `
+const makeTemp = Deno.makeTempDir;
+const removeTemp = Deno.remove;
+let cleanupPath: string | undefined;
+Deno.makeTempDir = async (options) => {
+  const path = await makeTemp(options);
+  cleanupPath = path.replaceAll("\\\\", "/");
+  return path;
+};
+Deno.remove = async (path, options) => {
+  if (path === cleanupPath && options?.recursive) {
+    await removeTemp(path, options);
+    throw new Error("synthetic CLI ENOTEMPTY after local removal");
+  }
+  await removeTemp(path, options);
+};
+` + await Deno.readTextFile(new URL("./publish-maven.ts", import.meta.url)));
+      const cli = () => runCommand({ command: Deno.execPath(), args: [
+        "run", "--allow-read", "--allow-write", "--allow-env", "--allow-run",
+        helper, cliFixture.options.ref, cliFixture.sha, cliFixture.remote, cliFixture.source,
+      ] });
+      const success = await cli();
+      assert(success.code === 0 && JSON.parse(success.stdout).status === "published" &&
+        success.stderr.includes("Failed to remove scratch directory") &&
+        success.stderr.includes("synthetic CLI ENOTEMPTY"), success.stdout + success.stderr);
+      await Deno.writeTextFile(prepare, "Deno.exit(7);\n");
+      const failure = await cli();
+      const result = JSON.parse(failure.stdout);
+      assert(failure.code === 1 && result.status === "failed" &&
+        !result.remoteMayHaveChanged && result.message.includes("Maven preparation failed (7)") &&
+        failure.stderr.includes("Failed to remove scratch directory") &&
+        failure.stderr.includes("synthetic CLI ENOTEMPTY"), failure.stdout + failure.stderr);
+    });
+  } finally {
+    Deno.remove = originalRemove;
+    console.error = originalError;
+    for (const path of paths) await originalRemove(path, { recursive: true });
+  }
+});
