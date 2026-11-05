@@ -1,0 +1,14 @@
+def Mixin = plugins.findPlugin('minecraft-codev-mixins').class.classLoader.loadClass('net.msrandom.minecraftcodev.mixins.task.Mixin')
+
+def producer = tasks.register('produce', Mixin) {
+    inputFile.set(tasks.named('target', Jar).flatMap { it.archiveFile })
+    mixinFiles.from(tasks.named('smoke-source', Jar).flatMap { it.archiveFile })
+    side.set('SERVER')
+    if (providers.gradleProperty('failContext').isPresent()) refmapContext.set('unknown')
+}
+tasks.register('consume', Copy) {
+    from(producer.flatMap { it.outputFile })
+    into(layout.buildDirectory.dir('consumed'))
+    doLast { println 'CONSUMED-APPLIED' }
+}
+println "TRANSPORT_ENV Gradle=${gradle.gradleVersion} Java=${System.getProperty('java.version')} Home=${gradle.gradleUserHomeDir}"

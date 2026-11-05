@@ -51,7 +51,13 @@ class StripStreamTests {
 
     @Test fun streamedEntriesKeepContentsOrderMetadataAndUnchangedConfigBytes() {
         val original = Files.readAllBytes(source)
-        StripFixture(root, source, cleanup, output).strip()
+        val later = root.resolve("later.json")
+        Files.writeString(later, "{\"unchanged.json\":[\"StillAbsent\"]}")
+        val action = StripFixture(root, source, cleanup, output)
+        action.cleanup.from(later.toFile())
+        action.strip()
+        assertEquals(2, action.step)
+        assertEquals(1, action.registrations)
         JarFile(source.toFile()).use { input ->
             JarFile(output.toFile()).use { result ->
                 assertEquals(input.entries().asSequence().map { it.name }.toList(), result.entries().asSequence().map { it.name }.toList())

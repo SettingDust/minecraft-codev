@@ -304,7 +304,7 @@ class MixinInputBindingTests {
         producer.mixinFiles.setFrom(sources)
         producer.outputFile.set(root.resolve("protected-runtime-neighbor/target.jar").toFile())
         producer.appliedMixins.set(root.resolve("protected-runtime-neighbor/target.jar.cleanup.json").toFile())
-        consumer.cleanup.set(producer.appliedMixins)
+        consumer.cleanup.setFrom(producer.appliedMixins)
         consumer.destination.set(root.resolve("protected-sources-neighbor/mod.jar").toFile())
         producer.mixin()
         consumer.strip()

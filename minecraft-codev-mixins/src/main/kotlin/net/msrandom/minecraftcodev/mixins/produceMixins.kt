@@ -91,14 +91,19 @@ fun produceMixins(input: String, sources: List<String>, runtime: List<String>, s
                 implementation.map { Paths.get(it).toUri().toURL() }.toTypedArray(),
                 (runtime + sources + input).map { Paths.get(it).toUri().toURL() }.toTypedArray()
             ).use { loader ->
-                thread.contextClassLoader = loader
-                stage = "runtime initialization/selector restoration"
-                initializeMixinRuntime(loader)
-                stage = "runtime"
-                val result = invokeApplyMixins(loader, input, stagedJar.toString(), side, configs, environments,
-                    mappingFile, sourceNamespace, targetNamespace, refmapContext)
-                stage = "runtime exit/close"
-                result
+                try {
+                    thread.contextClassLoader = loader
+                    stage = "runtime initialization/selector restoration"
+                    initializeMixinRuntime(loader)
+                    stage = "runtime"
+                    val result = invokeApplyMixins(loader, input, stagedJar.toString(), side, configs, environments,
+                        mappingFile, sourceNamespace, targetNamespace, refmapContext)
+                    stage = "runtime exit/close"
+                    result
+                } catch (error: Throwable) {
+                    // Gradle inspects exception method signatures after use closes the child loader.
+                    throw hostMixinFailure(error)
+                }
             }
         } finally { thread.contextClassLoader = previous }
         stage = "notification file write/close"

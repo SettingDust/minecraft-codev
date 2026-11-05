@@ -31,8 +31,10 @@ tasks.test {
     dependsOn(tasks.pluginUnderTestMetadata)
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
     systemProperty("fixture.gradleJava", System.getProperty("java.home"))
+    systemProperty("fixture.gradleInstallation", gradle.gradleHomeDir!!.absolutePath)
     val ordinaryProject = layout.projectDirectory.dir("integration-test/mixins/ordinary")
     val pipelineProject = layout.projectDirectory.dir("integration-test/mixins/pipeline")
     inputs.dir(ordinaryProject)
     inputs.dir(pipelineProject)
+    inputs.dir(layout.projectDirectory.dir("integration-test/mixins/failure-transport"))
 }

@@ -6,12 +6,13 @@ import org.gradle.api.artifacts.transform.TransformAction
 import org.gradle.api.artifacts.transform.TransformOutputs
 import org.gradle.api.artifacts.transform.TransformParameters
 import org.gradle.api.file.FileSystemLocation
-import org.gradle.api.file.RegularFileProperty
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.InputFile
+import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 
+import java.io.IOException
 import java.io.OutputStream
 import java.nio.file.*
 import kotlin.io.path.outputStream
@@ -20,9 +21,8 @@ import kotlin.io.path.outputStream
 @CacheableTransform
 abstract class StripMixins : TransformAction<StripMixins.Parameters> {
     interface Parameters : TransformParameters {
-        @get:InputFile
-        @get:PathSensitive(PathSensitivity.NONE)
-        val removalsFile: RegularFileProperty
+        @get:Classpath
+        val removalsFile: ConfigurableFileCollection
     }
 
     @get:InputArtifact
@@ -31,9 +31,10 @@ abstract class StripMixins : TransformAction<StripMixins.Parameters> {
 
     override fun transform(outputs: TransformOutputs) {
         val input = inputFile.get().asFile.toPath()
-        val removals = parameters.removalsFile.get().asFile.toPath()
+        val removals = parameters.removalsFile.files.toList()
+        require(removals.isNotEmpty()) { "No Strip records for $input" }
         val output = outputs.file("${input.fileName.toString().substringBeforeLast('.')}-mixinStripped.jar").toPath()
-        val inputs = listOf(input.toRealPath(), removals.toRealPath())
+        val inputs = listOf(input.toRealPath()) + removals.map { it.toPath().toRealPath() }
         val destination = mixinDestination(output.toAbsolutePath().normalize())
         require(!Files.isSymbolicLink(output)) { "Symbolic Strip output: $output" }
         for (protected in inputs) {
@@ -50,24 +51,41 @@ abstract class StripMixins : TransformAction<StripMixins.Parameters> {
             }
             activeOutputs.add(destination)
         }
-        var staged: Path? = null
+        val staged = mutableListOf<Path>()
         var failure: Throwable? = null
         var invalidated = false
         try {
             Files.createDirectories(destination.parent)
             Files.deleteIfExists(destination)
             invalidated = true
-            staged = Files.createTempFile(destination.parent, ".codev-strip-", ".jar")
-            openOutput(staged).use { ExactMixinStripper.rewrite(input, removals, it) }
-            Files.move(staged, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            var current = input
+            for ((index, record) in removals.withIndex()) {
+                try {
+                    val next = Files.createTempFile(destination.parent, ".codev-strip-", ".jar")
+                    staged.add(next)
+                    openOutput(next).use { ExactMixinStripper.rewrite(current, record.toPath(), it) }
+                    current = next
+                } catch (error: Exception) {
+                    throw IOException("Cannot strip $input with record ${index + 1} $record from $current", error)
+                }
+            }
+            try {
+                Files.move(current, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            } catch (error: Exception) {
+                throw IOException("Cannot publish Strip $input after record ${removals.last()} from $current to $destination", error)
+            }
         } catch (error: Throwable) {
             failure = error
             throw error
         } finally {
             var cleanupFailure: Throwable? = null
-            try {
-                if (staged != null) Files.deleteIfExists(staged)
-            } catch (cleanup: Throwable) { cleanupFailure = cleanup }
+            for (temporary in staged) {
+                try {
+                    Files.deleteIfExists(temporary)
+                } catch (cleanup: Throwable) {
+                    if (cleanupFailure == null) cleanupFailure = cleanup else cleanupFailure.addSuppressed(cleanup)
+                }
+            }
             try {
                 if (invalidated && (failure != null || cleanupFailure != null)) Files.deleteIfExists(destination)
             } catch (cleanup: Throwable) {

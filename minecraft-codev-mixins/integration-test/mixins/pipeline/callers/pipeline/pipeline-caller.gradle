@@ -44,7 +44,7 @@ def operation = { String id, String target, List sources ->
     dependencies.registerTransform(StripMixins) {
         from.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'jar')
         to.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'stripped-' + id)
-        parameters.removalsFile.set(producer.flatMap { it.appliedMixins })
+        parameters.removalsFile.from(producer.flatMap { it.appliedMixins })
     }
     def cleaned = raw.incoming.artifactView {
         attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'stripped-' + id)
@@ -84,7 +84,7 @@ def probeCleanup = layout.projectDirectory.file('probe-cleanup.json')
 dependencies.registerTransform(StripMixins) {
     from.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'jar')
     to.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'probe-stripped')
-    parameters.removalsFile.set(probeCleanup)
+    parameters.removalsFile.from(probeCleanup)
 }
 def probeFiles = probe.incoming.artifactView {
     attributes.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, 'probe-stripped')
