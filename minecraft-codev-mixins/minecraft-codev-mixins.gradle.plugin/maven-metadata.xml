@@ -3,12 +3,13 @@
   <groupId>minecraft-codev-mixins</groupId>
   <artifactId>minecraft-codev-mixins.gradle.plugin</artifactId>
   <versioning>
-    <latest>0.1.1+terrarium.0.6.0</latest>
-    <release>0.1.1+terrarium.0.6.0</release>
+    <latest>0.1.3+terrarium.0.6.0</latest>
+    <release>0.1.3+terrarium.0.6.0</release>
     <versions>
       <version>0.1.0+terrarium.0.6.0</version>
       <version>0.1.1+terrarium.0.6.0</version>
+      <version>0.1.3+terrarium.0.6.0</version>
     </versions>
-    <lastUpdated>20261031052749</lastUpdated>
+    <lastUpdated>20261126111852</lastUpdated>
   </versioning>
 </metadata>

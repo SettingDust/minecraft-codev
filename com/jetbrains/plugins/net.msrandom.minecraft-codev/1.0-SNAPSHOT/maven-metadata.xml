@@ -3,44 +3,44 @@
   <groupId>com.jetbrains.plugins</groupId>
   <artifactId>net.msrandom.minecraft-codev</artifactId>
   <versioning>
-    <lastUpdated>20261031052626</lastUpdated>
+    <lastUpdated>20261126111731</lastUpdated>
     <snapshot>
-      <timestamp>20261031.052626</timestamp>
-      <buildNumber>2</buildNumber>
+      <timestamp>20261126.111731</timestamp>
+      <buildNumber>3</buildNumber>
     </snapshot>
     <snapshotVersions>
       <snapshotVersion>
-        <extension>jar</extension>
-        <value>1.0-20261031.052626-2</value>
-        <updated>20261031052626</updated>
-      </snapshotVersion>
-      <snapshotVersion>
         <classifier>base</classifier>
         <extension>jar</extension>
-        <value>1.0-20261031.052626-2</value>
-        <updated>20261031052626</updated>
-      </snapshotVersion>
-      <snapshotVersion>
-        <extension>pom</extension>
-        <value>1.0-20261031.052626-2</value>
-        <updated>20261031052626</updated>
-      </snapshotVersion>
-      <snapshotVersion>
-        <extension>module</extension>
-        <value>1.0-20261031.052626-2</value>
-        <updated>20261031052626</updated>
+        <value>1.0-20261126.111731-3</value>
+        <updated>20261126111731</updated>
       </snapshotVersion>
       <snapshotVersion>
         <classifier>sources</classifier>
         <extension>jar</extension>
-        <value>1.0-20261031.052626-2</value>
-        <updated>20261031052626</updated>
+        <value>1.0-20261126.111731-3</value>
+        <updated>20261126111731</updated>
       </snapshotVersion>
       <snapshotVersion>
         <classifier>javadoc</classifier>
         <extension>jar</extension>
-        <value>1.0-20261031.052626-2</value>
-        <updated>20261031052626</updated>
+        <value>1.0-20261126.111731-3</value>
+        <updated>20261126111731</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <extension>jar</extension>
+        <value>1.0-20261126.111731-3</value>
+        <updated>20261126111731</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <extension>pom</extension>
+        <value>1.0-20261126.111731-3</value>
+        <updated>20261126111731</updated>
+      </snapshotVersion>
+      <snapshotVersion>
+        <extension>module</extension>
+        <value>1.0-20261126.111731-3</value>
+        <updated>20261126111731</updated>
       </snapshotVersion>
     </snapshotVersions>
   </versioning>
