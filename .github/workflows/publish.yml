@@ -27,11 +27,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: false
 
-      - name: Set up Java 8 toolchain
-        uses: actions/setup-java@v4
-        with:
-          distribution: zulu
-          java-version: '8'
+      - name: Install the Java 8 doclet used for published Javadocs
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/zulu8.98.0.107-ca-jdk8.0.512-linux_x64.tar.gz"
+          curl --fail --location --retry 3 "https://cdn.azul.com/zulu/bin/${archive##*/}" --output "$archive"
+          # https://api.azul.com/metadata/v1/zulu/packages/e92d9f82-0d1d-4ed7-925c-ad30aaf45301
+          echo "f82a4cb00bbac1ddaa4e578cd6221361a45ee0e4ce51969c4109451750e5164e  $archive" | sha256sum --check
+          jdk="$RUNNER_TEMP/codev-zulu-8u512-b08"
+          mkdir "$jdk"
+          tar -xzf "$archive" --strip-components=1 -C "$jdk"
+          echo "CODEV_JAVA_8=$jdk" >> "$GITHUB_ENV"
 
       - name: Set up Java 11 toolchain
         uses: actions/setup-java@v4
@@ -67,9 +73,9 @@ jobs:
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0="http.${REPOSITORY_URL}.extraheader"
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
-          toolchains="${JAVA_HOME_8_X64},${JAVA_HOME_11_X64}"
+          toolchains="${CODEV_JAVA_8},${JAVA_HOME_11_X64},${JAVA_HOME}"
           property=ORG_GRADLE_PROJECT_org.gradle.java.installations.paths
-          env "$property=$toolchains" \
+          env "$property=$toolchains" 'ORG_GRADLE_PROJECT_org.gradle.java.installations.auto-detect=false' \
             deno run --allow-read --allow-write --allow-env --allow-run \
               .github/publish-maven.ts \
               "$SOURCE_REF" "$SOURCE_SHA" "$REPOSITORY_URL"
