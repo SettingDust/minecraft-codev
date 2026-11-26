@@ -1,6 +1,7 @@
 package net.msrandom.minecraftcodev.mixins
 
 import org.gradle.api.artifacts.transform.TransformOutputs
+import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.FileSystemLocation
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.Provider
@@ -17,7 +18,7 @@ import java.nio.file.Path
 class StripFixture(root: Path, input: Path, information: Path, output: Path) : StripMixins() {
     private val project = ProjectBuilder.builder().withProjectDir(root.toFile()).build()
     @JvmField val source: RegularFileProperty = project.objects.fileProperty().also { it.set(input.toFile()) }
-    @JvmField val cleanup: RegularFileProperty = project.objects.fileProperty().also { it.set(information.toFile()) }
+    @JvmField val cleanup: ConfigurableFileCollection = project.objects.fileCollection().from(information.toFile())
     @JvmField val destination: RegularFileProperty = project.objects.fileProperty().also { it.set(output.toFile()) }
     @JvmField val parameters: Parameters
     @JvmField var fault = ""
@@ -26,10 +27,14 @@ class StripFixture(root: Path, input: Path, information: Path, output: Path) : S
     @JvmField val writeFailure = IOException("fixture write failure")
     @JvmField val closeFailure = IOException("fixture close failure")
     @JvmField var onOpen = Runnable {}
+    @JvmField var step = 0
+    @JvmField var faultStep = 1
+    @JvmField var registrations = 0
+    @JvmField val stages = mutableListOf<Path>()
 
     init {
         parameters = object : Parameters {
-            override val removalsFile: RegularFileProperty get() = cleanup
+            override val removalsFile: ConfigurableFileCollection get() = cleanup
         }
     }
 
@@ -41,11 +46,13 @@ class StripFixture(root: Path, input: Path, information: Path, output: Path) : S
 
     override fun openOutput(staged: Path): OutputStream {
         try {
+            step++
+            stages.add(staged)
             onOpen.run()
             return object : FilterOutputStream(Files.newOutputStream(staged)) {
                 override fun write(bytes: ByteArray, offset: Int, length: Int) {
                     out.write(bytes, offset, length)
-                    if (!faultReached) {
+                    if (step == faultStep && !faultReached) {
                         if (fault == "write" || fault == "write-close") {
                             faultReached = true
                             throw writeFailure
@@ -57,11 +64,12 @@ class StripFixture(root: Path, input: Path, information: Path, output: Path) : S
                 override fun close() {
                     super.close()
                     outputClosed = true
-                    if (fault == "write-close") {
+                    if (step == faultStep && (fault == "close" || fault == "write-close")) {
+                        faultReached = true
                         fault = ""
                         throw closeFailure
                     }
-                    if (!faultReached && fault.isNotEmpty()) {
+                    if (step == faultStep && !faultReached && fault.isNotEmpty()) {
                         faultReached = true
                         if (fault == "move") Files.delete(staged)
                     }
@@ -75,6 +83,7 @@ class StripFixture(root: Path, input: Path, information: Path, output: Path) : S
     fun strip() {
         transform(Proxy.newProxyInstance(javaClass.classLoader, arrayOf(TransformOutputs::class.java)) { _, method, _ ->
             if (method.name != "file") throw UnsupportedOperationException(method.name)
+            registrations++
             destination.get().asFile
         } as TransformOutputs)
     }

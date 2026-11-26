@@ -2,8 +2,7 @@ package net.msrandom.minecraftcodev.mixins
 
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
-import java.security.Permission
-import java.util.PropertyPermission
+import java.util.Properties
 
 /** Codev selector cleanup; the stub is not an engine smoke. */
 class MixinOperationIsolationTests {
@@ -30,7 +29,6 @@ class MixinOperationIsolationTests {
     @Test fun initializationFailureStillRestoresBothSelectorsAndKeepsCause() {
         val saved = selectors()
         val prior = listOf("host.Service", "host.Bootstrap")
-        val original = System.getSecurityManager()
         val primary = RuntimeException("initializer failure")
         val restoration = SecurityException("first selector restore denied")
         val attempts = mutableListOf<String>()
@@ -45,21 +43,25 @@ class MixinOperationIsolationTests {
                     return Initializer::class.java
                 }
             }
-            System.setSecurityManager(object : SecurityManager() {
-                override fun checkPermission(permission: Permission) {
-                    if (restoring && permission is PropertyPermission && permission.actions.contains("write") && permission.name in selectors) {
-                        attempts.add(permission.name)
-                        if (permission.name == selectors[0]) throw restoration
+            val original = System.getProperties()
+            System.setProperties(object : Properties() {
+                init { putAll(original) }
+                override fun setProperty(key: String, value: String): Any? {
+                    if (restoring && key in selectors) {
+                        attempts.add(key)
+                        if (key == selectors[0]) throw restoration
                     }
+                    return super.setProperty(key, value)
                 }
             })
-            val failure = assertThrows(Throwable::class.java) { initializeMixinRuntime(loader) }
-            assertSame(primary, failure)
-            assertArrayEquals(arrayOf(restoration), failure.suppressed)
-            assertEquals(selectors, attempts)
-            assertEquals(prior[1], selectors()[1])
+            try {
+                val failure = assertThrows(Throwable::class.java) { initializeMixinRuntime(loader) }
+                assertSame(primary, failure)
+                assertArrayEquals(arrayOf(restoration), failure.suppressed)
+                assertEquals(selectors, attempts)
+                assertEquals(prior[1], selectors()[1])
+            } finally { System.setProperties(original) }
         } finally {
-            System.setSecurityManager(original)
             Initializer.failure = null
             selectors(saved)
         }

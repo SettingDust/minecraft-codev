@@ -14,6 +14,9 @@ gradlePlugin {
 
 dependencies {
     api(group = "net.fabricmc", name = "sponge-mixin", version = "0.15.0+mixin.0.8.7")
+    // Keep the isolated Mixin engine's ASM readers compatible with Java 25 class files.
+    implementation("org.ow2.asm:asm-commons:9.8")
+    implementation("org.ow2.asm:asm-util:9.8")
 
     implementation(projects.minecraftCodevCore)
     implementation("net.fabricmc:mapping-io:0.7.1")
@@ -29,10 +32,12 @@ tasks.test {
     reports.junitXml.outputLocation.set(layout.buildDirectory.dir("reports/test/xml"))
     binaryResultsDirectory.set(layout.buildDirectory.dir("reports/test/binary"))
     dependsOn(tasks.pluginUnderTestMetadata)
-    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.current()) })
     systemProperty("fixture.gradleJava", System.getProperty("java.home"))
+    systemProperty("fixture.gradleInstallation", gradle.gradleHomeDir!!.absolutePath)
     val ordinaryProject = layout.projectDirectory.dir("integration-test/mixins/ordinary")
     val pipelineProject = layout.projectDirectory.dir("integration-test/mixins/pipeline")
     inputs.dir(ordinaryProject)
     inputs.dir(pipelineProject)
+    inputs.dir(layout.projectDirectory.dir("integration-test/mixins/failure-transport"))
 }

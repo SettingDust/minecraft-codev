@@ -211,14 +211,26 @@ export async function publishMaven(
       `-PciMavenBase=${base}`,
       `-PciMavenOutput=${candidate}`,
     ];
+    // Only Git needs the workflow's repository write credentials.
+    const gradleEnv = {
+      GITHUB_TOKEN: "",
+      GIT_CONFIG_COUNT: "0",
+      GIT_CONFIG_VALUE_0: "",
+    };
     const preparation = await run(
       Deno.build.os === "windows"
         ? {
           command: "cmd.exe",
           args: ["/d", "/c", `${checkout}/gradlew.bat`, ...args],
           cwd: checkout,
+          env: gradleEnv,
         }
-        : { command: `${checkout}/gradlew`, args, cwd: checkout },
+        : {
+          command: `${checkout}/gradlew`,
+          args,
+          cwd: checkout,
+          env: gradleEnv,
+        },
     );
     assert(
       preparation.code === 0,

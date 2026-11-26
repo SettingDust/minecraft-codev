@@ -91,14 +91,19 @@ fun produceMixins(input: String, sources: List<String>, runtime: List<String>, s
                 implementation.map { Paths.get(it).toUri().toURL() }.toTypedArray(),
                 (runtime + sources + input).map { Paths.get(it).toUri().toURL() }.toTypedArray()
             ).use { loader ->
-                thread.contextClassLoader = loader
-                stage = "runtime initialization/selector restoration"
-                initializeMixinRuntime(loader)
-                stage = "runtime"
-                val result = invokeApplyMixins(loader, input, stagedJar.toString(), side, configs, environments,
-                    mappingFile, sourceNamespace, targetNamespace, refmapContext)
-                stage = "runtime exit/close"
-                result
+                try {
+                    thread.contextClassLoader = loader
+                    stage = "runtime initialization/selector restoration"
+                    initializeMixinRuntime(loader)
+                    stage = "runtime"
+                    val result = invokeApplyMixins(loader, input, stagedJar.toString(), side, configs, environments,
+                        mappingFile, sourceNamespace, targetNamespace, refmapContext)
+                    stage = "runtime exit/close"
+                    result
+                } catch (error: Throwable) {
+                    // Gradle inspects exception method signatures after use closes the child loader.
+                    throw hostMixinFailure(error)
+                }
             }
         } finally { thread.contextClassLoader = previous }
         stage = "notification file write/close"
@@ -107,6 +112,7 @@ fun produceMixins(input: String, sources: List<String>, runtime: List<String>, s
         }
         stagedRecords.outputStream().use { Json.encodeToStream(json, it) }
         stage = "output completion"
+        MixinIo.before(MixinIo.Operation.PUBLISH, outputJar)
         Files.move(stagedJar, outputJar, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         Files.move(stagedRecords, recordsFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     } catch (error: Throwable) {
@@ -156,6 +162,7 @@ internal fun mixinDestination(path: Path): Path {
     val suffix = ArrayDeque<Path>()
     while (true) {
         try {
+            MixinIo.before(MixinIo.Operation.RESOLVE, ancestor)
             var real = ancestor.toRealPath()
             for (part in suffix) real = real.resolve(part)
             return real
