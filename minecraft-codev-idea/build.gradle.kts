@@ -43,9 +43,10 @@ repositories {
 }*/
 
 dependencies {
-    compileOnly("com.jetbrains.intellij.platform:eel:latest.release")
-    compileOnly("com.jetbrains.intellij.platform:external-system-impl:latest.release")
-    compileOnly("com.jetbrains.intellij.platform:eel-provider:latest.release")
+    val ideaPlatformBuild = "243.22562.145" // IntelliJ IDEA Community 2024.3.1
+    compileOnly("com.jetbrains.intellij.platform:eel:$ideaPlatformBuild")
+    compileOnly("com.jetbrains.intellij.platform:external-system-impl:$ideaPlatformBuild")
+    compileOnly("com.jetbrains.intellij.platform:eel-provider:$ideaPlatformBuild")
 
     gradleToolingExtension.implementationConfigurationName(kotlin("stdlib"))
     gradleToolingExtension.implementationConfigurationName("org.apache.groovy:groovy:5.0.3")
