@@ -112,6 +112,7 @@ fun produceMixins(input: String, sources: List<String>, runtime: List<String>, s
         }
         stagedRecords.outputStream().use { Json.encodeToStream(json, it) }
         stage = "output completion"
+        MixinIo.before(MixinIo.Operation.PUBLISH, outputJar)
         Files.move(stagedJar, outputJar, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         Files.move(stagedRecords, recordsFile, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
     } catch (error: Throwable) {
@@ -161,6 +162,7 @@ internal fun mixinDestination(path: Path): Path {
     val suffix = ArrayDeque<Path>()
     while (true) {
         try {
+            MixinIo.before(MixinIo.Operation.RESOLVE, ancestor)
             var real = ancestor.toRealPath()
             for (part in suffix) real = real.resolve(part)
             return real

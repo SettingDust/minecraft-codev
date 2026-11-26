@@ -18,7 +18,6 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.nio.file.StandardOpenOption.APPEND
-import java.security.Permission
 import java.util.concurrent.TimeUnit
 import java.util.jar.JarFile
 
@@ -195,26 +194,12 @@ class MixinInputBindingTests {
         val observed = listOf(fixture.target, fixture.mod, pair[0], pair[1], cleaned, root.resolve("task-mapping.tiny")) +
             runtime.map(Paths::get) + sources.map(Paths::get)
         val before = snapshot(observed)
-        val previous = System.getSecurityManager()
         for (denied in listOf(pair[0], pair[1], cleaned)) {
             var reached = false
             val access = SecurityException("fixture destination access denied: $denied")
-            try {
-                System.setSecurityManager(object : SecurityManager() {
-                    override fun checkPermission(permission: Permission) {}
-                    override fun checkRead(path: String) {
-                        if (path == denied.toString() && Thread.currentThread().stackTrace.any { frame ->
-                            frame.className == "net.msrandom.minecraftcodev.mixins.ProduceMixinsKt" && frame.methodName == "mixinDestination"
-                        }) {
-                            reached = true
-                            throw access
-                        }
-                    }
-                })
+            MixinIo.observe(MixinIo.Operation.RESOLVE, denied) { reached = true; throw access }.use {
                 assertSame(access, assertThrows(SecurityException::class.java) { if (denied == cleaned) consumer.strip() else producer.mixin() })
-                assertTrue(reached, "must reach the shared resolver's actual NIO access")
-            } finally {
-                System.setSecurityManager(previous)
+                assertTrue(reached, "must reach the shared destination resolver")
             }
             unchanged(before)
         }
@@ -372,7 +357,7 @@ class MixinInputBindingTests {
     }
 
     private fun outcome(result: BuildResult, task: String, expected: TaskOutcome) {
-        assertNotNull(result.task(task))
+        assertNotNull(result.task(task), "Missing $task in Gradle result:\n${result.output}")
         assertEquals(expected, result.task(task)!!.outcome)
     }
 
@@ -510,6 +495,33 @@ class MixinInputBindingTests {
             val restoredJar = Paths.get(path)
             assertTrue(restoredJar.toRealPath().startsWith(Path.of(System.getProperty("org.gradle.testkit.dir")).toRealPath()), path)
             assertArrayEquals(Files.readAllBytes(restoredJar), Files.readAllBytes(root.resolve("build/consumed/A").resolve(restoredJar.fileName)))
+        }
+    }
+
+    @Test fun testKitWeavesCurrentAndLegacyClassVersionsWithoutUpgradingEither() {
+        pipelineProject()
+        OrdinaryInputs.copyJar("smoke-source", fixture.mod)
+        val compiler = javax.tools.ToolProvider.getSystemJavaCompiler()
+        val source = Path.of("integration-test/mixins/ordinary/src/main/java/demo/Target.java")
+        for (release in listOf(11, Runtime.version().feature()).distinct()) {
+            val classes = Files.createDirectories(root.resolve("classes-$release"))
+            assertEquals(0, compiler.run(null, null, null, "--release", release.toString(), "-d", classes.toString(), source.toString()))
+            val entry = "demo/Target.class"
+            val bytes = Files.readAllBytes(classes.resolve(entry))
+            OrdinaryInputs.copyJar("target", fixture.target)
+            replace(fixture.target, "target.jar", mapOf(entry to bytes))
+            fun major(jar: Path) = java.nio.ByteBuffer.wrap(fixture.read(jar, entry)).getShort(6).toInt()
+            assertEquals(release + 44, major(fixture.target))
+            assertEquals(1, fixture.value(fixture.target))
+            val gradle = runner("produceA", "--offline", "--no-configuration-cache", "--rerun-tasks", "--no-build-cache")
+            gradle.withPluginClasspath(gradle.pluginClasspath + listOf(
+                java.io.File(FixtureMixinRule::class.java.protectionDomain.codeSource.location.toURI()),
+                java.io.File("build/resources/test").absoluteFile))
+            val result = gradle.build()
+            outcome(result, ":produceA", TaskOutcome.SUCCESS)
+            assertEquals(release + 44, major(applied("A")))
+            assertEquals(42, fixture.value(applied("A")))
+            println("WEAVE release=$release major=${major(fixture.target)}->${major(applied("A"))} value=1->42")
         }
     }
 

@@ -259,16 +259,9 @@ class StripMixinsTests {
             action.cleanup.from(later.toFile())
             Files.writeString(output, "old success")
             val denied = SecurityException("fixture record read denied: $record")
-            val previous = System.getSecurityManager()
-            // shortcut: JDK 17 SecurityManager seam; replace if the fixture JVM stops supporting it.
-            System.setSecurityManager(object : SecurityManager() {
-                override fun checkPermission(permission: java.security.Permission) {}
-                override fun checkRead(path: String) {
-                    if (path == record.toString() && classContext.any { it.name == ExactMixinStripper::class.java.name }) throw denied
-                }
-            })
-            val failure = try { assertThrows(Exception::class.java, action::strip) }
-            finally { System.setSecurityManager(previous) }
+            val failure = MixinIo.observe(MixinIo.Operation.READ_RECORD, record) { throw denied }.use {
+                assertThrows(Exception::class.java, action::strip)
+            }
             assertSame(denied, failure.cause)
             assertTrue(failure.message!!.contains(record.toString()))
             assertEquals(if (record == cleanup) 1 else 2, action.step)
@@ -289,28 +282,23 @@ class StripMixinsTests {
             action.cleanup.from(later.toFile())
             action.faultStep = 2
             if (priorFailure) action.fault = "write-close"
-            val cleanupFailure = SecurityException("fixture staged deletion denied")
+            val denied = SecurityException("fixture staged deletion denied")
             var sawPublished = false
-            val previous = System.getSecurityManager()
-            // shortcut: JDK 17 SecurityManager seam; replace if the fixture JVM stops supporting it.
-            System.setSecurityManager(object : SecurityManager() {
-                override fun checkPermission(permission: java.security.Permission) {}
-                override fun checkDelete(path: String) {
-                    if (action.stages.firstOrNull()?.toString() == path) {
-                        sawPublished = Files.exists(output)
-                        throw cleanupFailure
-                    }
+            var registration: java.io.Closeable? = null
+            action.onOpen = Runnable {
+                if (action.step == 1) registration = MixinIo.observe(MixinIo.Operation.DELETE_STAGE, action.stages.first()) {
+                    sawPublished = Files.exists(output)
+                    throw denied
                 }
-            })
-            val failure = try { assertThrows(Exception::class.java, action::strip) }
-            finally { System.setSecurityManager(previous) }
+            }
+            val failure = try { assertThrows(Exception::class.java, action::strip) } finally { registration?.close() }
             if (priorFailure) {
                 assertSame(action.writeFailure, failure.cause)
                 assertTrue(action.closeFailure in failure.cause!!.suppressed)
-                assertTrue(cleanupFailure in failure.suppressed)
+                assertTrue(denied in failure.suppressed)
                 assertFalse(sawPublished)
             } else {
-                assertSame(cleanupFailure, failure)
+                assertSame(denied, failure)
                 assertTrue(sawPublished, "the final move succeeded before cleanup failed")
             }
             assertFalse(Files.exists(output))

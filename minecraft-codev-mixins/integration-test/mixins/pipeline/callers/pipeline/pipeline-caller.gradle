@@ -3,30 +3,18 @@ def StripMixins = pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixin
 def Mixin = pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixins.task.Mixin')
 import org.gradle.api.artifacts.type.ArtifactTypeDefinition
 
-// Deny actual fixture I/O only inside the selected component, after normal input tracking.
-// shortcut: JDK 17 SecurityManager seam; replace if the fixture JVM stops supporting it.
-class FixtureIoFailure extends SecurityManager {
-    String stripInput
-    String publicationOutput
-    void checkPermission(java.security.Permission permission) {}
-    void checkRead(String path) {
-        if (path == stripInput && classContext.any { it.name == 'net.msrandom.minecraftcodev.mixins.ExactMixinStripper' })
-            throw new SecurityException('fixture strip read denied: ' + path)
-    }
-    void checkWrite(String path) {
-        if (path == publicationOutput && classContext.any { it.name == 'java.nio.file.Files' })
-            throw new SecurityException('fixture publication write denied: ' + path)
-    }
+// Restrict the fault to the exact operation and path in this fixture's plugin class loader.
+def fault = { String operation, File path, String reason ->
+    def io = pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixins.MixinIo').INSTANCE
+    def kind = pluginClassLoader.loadClass('net.msrandom.minecraftcodev.mixins.MixinIo$Operation')
+    def registration = io.observe(kind.valueOf(operation), path.toPath(), { throw new SecurityException(reason + path) } as Runnable)
+    gradle.buildFinished { registration.close() }
 }
-if (providers.gradleProperty('failStrip').isPresent() || providers.gradleProperty('failPublication').isPresent()) {
-    def previous = System.securityManager
-    def failure = new FixtureIoFailure()
-    if (providers.gradleProperty('failStrip').isPresent())
-        failure.stripInput = file(providers.gradleProperty('failStrip').get() == 'source' ? 'mod.jar' : 'build/applied/A.jar').absolutePath
-    if (providers.gradleProperty('failPublication').isPresent())
-        failure.publicationOutput = file('build/applied/A.jar').absolutePath
-    System.setSecurityManager(failure)
-    gradle.buildFinished { System.setSecurityManager(previous) }
+if (providers.gradleProperty('failStrip').isPresent()) {
+    fault('OPEN_JAR', file(providers.gradleProperty('failStrip').get() == 'source' ? 'mod.jar' : 'build/applied/A.jar'), 'fixture strip read denied: ')
+}
+if (providers.gradleProperty('failPublication').isPresent()) {
+    fault('PUBLISH', file('build/applied/A.jar'), 'fixture publication write denied: ')
 }
 
 def operation = { String id, String target, List sources ->

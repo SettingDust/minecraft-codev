@@ -28,11 +28,13 @@ object ExactMixinStripper {
     @JvmStatic
     @Throws(IOException::class)
     fun rewrite(source: Path, cleanup: Path, stream: OutputStream) {
+        MixinIo.before(MixinIo.Operation.READ_RECORD, cleanup)
         val json = cleanup.inputStream().use { Json.decodeFromStream<JsonObject>(it) }
         val removals = json.mapValues { (_, entries) ->
             entries.jsonArray.mapTo(linkedSetOf()) { it.jsonPrimitive.content }
         }
         JarOutputStream(stream).use { output ->
+            MixinIo.before(MixinIo.Operation.OPEN_JAR, source)
             JarFile(source.toFile()).use { archive ->
                 for (entry in Collections.list(archive.entries())) {
                     val path = entry.name

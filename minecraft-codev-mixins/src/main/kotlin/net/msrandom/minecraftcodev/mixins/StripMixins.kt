@@ -81,6 +81,7 @@ abstract class StripMixins : TransformAction<StripMixins.Parameters> {
             var cleanupFailure: Throwable? = null
             for (temporary in staged) {
                 try {
+                    MixinIo.before(MixinIo.Operation.DELETE_STAGE, temporary)
                     Files.deleteIfExists(temporary)
                 } catch (cleanup: Throwable) {
                     if (cleanupFailure == null) cleanupFailure = cleanup else cleanupFailure.addSuppressed(cleanup)

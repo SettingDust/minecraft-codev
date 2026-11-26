@@ -177,7 +177,7 @@ class MixinFailureTransportTests {
         assertFalse(Files.exists(applied))
         assertFalse(Files.exists(records))
         Files.list(applied.parent).use { paths -> assertFalse(paths.anyMatch { it.fileName.toString().startsWith(".codev-mixin-") }) }
-        assertTrue(failed.output.contains("TRANSPORT_ENV Gradle=" + org.gradle.util.GradleVersion.current().version + " Java=17"), failed.output)
+        assertTrue(failed.output.contains("TRANSPORT_ENV Gradle=" + org.gradle.util.GradleVersion.current().version + " Java=" + System.getProperty("java.specification.version")), failed.output)
         assertTrue(failed.output.contains("Mixin producer/publication failed:"), failed.output)
         assertTrue(failed.output.contains("FAILURE: Build failed with an exception."), failed.output)
         val log = failed.output.substringAfter("Mixin producer/publication failed:").substringBefore("FAILURE: Build failed with an exception.")
