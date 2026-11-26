@@ -16,6 +16,25 @@ plugins {
 if (providers.gradleProperty("ciMavenBase").isPresent || providers.gradleProperty("ciMavenOutput").isPresent ||
     gradle.startParameter.taskNames.any { it.substringAfterLast(':') == "prepareCiMavenRepository" || it.endsWith("CiMavenRepository") }
 ) {
+    // The JDK 8 doclet can emit these siblings in either order. Stabilize CI docs before packaging.
+    project(":minecraft-codev-core:side-annotations").tasks.withType<Javadoc>().matching { it.name == "javadoc" }.configureEach {
+        doLast {
+            val row = Regex("""(?m)^<li type="circle">[^\r\n]*?<span class="typeNameLink">(UnsafeForClient|UnsafeForCommon)</span>[^\r\n]*</li>$""")
+            for (page in listOf("overview-tree.html", "net/msrandom/minecraftcodev/annotations/package-tree.html")) {
+                val file = checkNotNull(destinationDir).resolve(page)
+                val text = file.readText()
+                val siblings = row.findAll(text).toList()
+                check(siblings.size == 2 && siblings.map { it.groupValues[1] }.distinct().size == 2) { "Unexpected annotation hierarchy in $page" }
+                val (first, second) = siblings
+                val newline = text.substring(first.range.last + 1, second.range.first)
+                check(newline == "\n" || newline == "\r\n") { "Expected adjacent annotations in $page" }
+                if (first.groupValues[1] > second.groupValues[1]) {
+                    file.writeText(text.replaceRange(first.range.first..second.range.last, second.value + newline + first.value))
+                }
+            }
+        }
+    }
+
     apply(from = "gradle/ci-maven.gradle.kts")
 }
 
