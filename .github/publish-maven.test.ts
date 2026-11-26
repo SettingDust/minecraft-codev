@@ -157,6 +157,12 @@ async function fixture(sourceName = "source") {
     if (command.args.includes(":prepareCiMavenRepository")) {
       preparations++;
       assert(
+        command.env?.GITHUB_TOKEN === "" &&
+          command.env?.GIT_CONFIG_COUNT === "0" &&
+          command.env?.GIT_CONFIG_VALUE_0 === "",
+        "Gradle must not inherit workflow write credentials",
+      );
+      assert(
         command.args.includes("--no-configuration-cache") &&
           command.args.includes("--no-configure-on-demand"),
         "Exact I01 task flags",
@@ -619,6 +625,7 @@ Deno.test("MPC-I02 local Git transaction contract", async (test) => {
       `${f.source}/prepare.ts`,
       `
 const args = Deno.args;
+if (Deno.env.get("GITHUB_TOKEN") || Deno.env.get("GIT_CONFIG_VALUE_0") || Deno.env.get("GIT_CONFIG_COUNT") !== "0") throw Error("Workflow credentials reached preparer");
 await Deno.writeTextFile(${
         JSON.stringify(`${f.source}/observed.json`)
       }, JSON.stringify(args));
@@ -638,11 +645,11 @@ console.log("synthetic preparer subprocess, not Gradle");
     );
     await Deno.writeTextFile(
       `${f.source}/gradlew.bat`,
-      `@"${Deno.execPath()}" run --allow-read --allow-write "%~dp0prepare.ts" %*\r\n`,
+      `@"${Deno.execPath()}" run --allow-env --allow-read --allow-write "%~dp0prepare.ts" %*\r\n`,
     );
     await Deno.writeTextFile(
       `${f.source}/gradlew`,
-      `#!/bin/sh\nexec '${Deno.execPath()}' run --allow-read --allow-write "$(dirname "$0")/prepare.ts" "$@"\n`,
+      `#!/bin/sh\nexec '${Deno.execPath()}' run --allow-env --allow-read --allow-write "$(dirname "$0")/prepare.ts" "$@"\n`,
     );
     if (Deno.build.os !== "windows") {
       await Deno.chmod(`${f.source}/gradlew`, 0o755);
@@ -650,6 +657,12 @@ console.log("synthetic preparer subprocess, not Gradle");
     const cli = () =>
       runCommand({
         command: Deno.execPath(),
+        env: {
+          GITHUB_TOKEN: "local-fixture-only",
+          GIT_CONFIG_COUNT: "1",
+          GIT_CONFIG_KEY_0: "http.https://example.invalid/.extraheader",
+          GIT_CONFIG_VALUE_0: "fixture-only-header",
+        },
         args: [
           "run",
           "--allow-read",
