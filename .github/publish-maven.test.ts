@@ -626,6 +626,7 @@ Deno.test("MPC-I02 local Git transaction contract", async (test) => {
       `
 const args = Deno.args;
 if (Deno.env.get("GITHUB_TOKEN") || Deno.env.get("GIT_CONFIG_VALUE_0") || Deno.env.get("GIT_CONFIG_COUNT") !== "0") throw Error("Workflow credentials reached preparer");
+if (!args.includes("-Porg.gradle.java.installations.fromEnv=CODEV_JAVA_8,JAVA_HOME_11_X64,JAVA_HOME") || !args.includes("-Porg.gradle.java.installations.auto-detect=false") || Deno.env.get("CODEV_JAVA_8") !== "fixture JDK 8") throw Error("CI toolchain configuration did not reach wrapper");
 await Deno.writeTextFile(${
         JSON.stringify(`${f.source}/observed.json`)
       }, JSON.stringify(args));
@@ -659,6 +660,7 @@ console.log("synthetic preparer subprocess, not Gradle");
         command: Deno.execPath(),
         env: {
           GITHUB_TOKEN: "local-fixture-only",
+          CODEV_JAVA_8: "fixture JDK 8",
           GIT_CONFIG_COUNT: "1",
           GIT_CONFIG_KEY_0: "http.https://example.invalid/.extraheader",
           GIT_CONFIG_VALUE_0: "fixture-only-header",

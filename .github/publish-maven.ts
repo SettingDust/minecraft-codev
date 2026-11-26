@@ -208,6 +208,10 @@ export async function publishMaven(
       "--no-configuration-cache",
       "--no-configure-on-demand",
       "--console=plain",
+      ...(Deno.env.get("CODEV_JAVA_8") ? [
+        "-Porg.gradle.java.installations.fromEnv=CODEV_JAVA_8,JAVA_HOME_11_X64,JAVA_HOME",
+        "-Porg.gradle.java.installations.auto-detect=false",
+      ] : []),
       `-PciMavenBase=${base}`,
       `-PciMavenOutput=${candidate}`,
     ];

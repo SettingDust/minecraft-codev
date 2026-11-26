@@ -73,9 +73,6 @@ jobs:
           export GIT_CONFIG_COUNT=1
           export GIT_CONFIG_KEY_0="http.${REPOSITORY_URL}.extraheader"
           export GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth"
-          toolchains="${CODEV_JAVA_8},${JAVA_HOME_11_X64},${JAVA_HOME}"
-          property=ORG_GRADLE_PROJECT_org.gradle.java.installations.paths
-          env "$property=$toolchains" 'ORG_GRADLE_PROJECT_org.gradle.java.installations.auto-detect=false' \
-            deno run --allow-read --allow-write --allow-env --allow-run \
+          deno run --allow-read --allow-write --allow-env --allow-run \
               .github/publish-maven.ts \
               "$SOURCE_REF" "$SOURCE_SHA" "$REPOSITORY_URL"
